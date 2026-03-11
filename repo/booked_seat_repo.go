@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
@@ -111,20 +112,38 @@ func (r *DynamoBookedSeatRepo) Create(ctx context.Context, seat models.BookedSea
 	return nil
 }
 
-// Update overwrites the booked seat item
 func (r *DynamoBookedSeatRepo) Update(ctx context.Context, seat models.BookedSeat) error {
 	rec := view.BookedSeatDomain2Repo(seat)
-	item, err := attributevalue.MarshalMap(rec)
-	if err != nil {
-		return fmt.Errorf("marshal booked seat: %w", err)
-	}
-	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(r.table),
-		Item:      item,
+
+	key, err := attributevalue.MarshalMap(map[string]string{
+		"showtime_id": rec.ShowtimeID,
+		"seat_key":    rec.SeatKey,
 	})
+
 	if err != nil {
-		return fmt.Errorf("update booked seat: %w", err)
+		return err
 	}
+
+	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName:           aws.String(r.table),
+		Key:                 key,
+		UpdateExpression:    aws.String("SET #status = :status, #updatedAt = :newTime"),
+		ConditionExpression: aws.String("#updatedAt = :oldTime"),
+		ExpressionAttributeNames: map[string]string{
+			"#status":    "status",
+			"#updatedAt": "updatedAt",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":status":  &types.AttributeValueMemberS{Value: rec.Status},
+			":newTime": &types.AttributeValueMemberS{Value: time.Now().UTC().Format(time.RFC3339)},
+			":oldTime": &types.AttributeValueMemberS{Value: rec.UpdatedAt},
+		},
+	})
+
+	if err != nil {
+		return fmt.Errorf("seat already modified")
+	}
+
 	return nil
 }
 

@@ -24,7 +24,7 @@ func NewDynamoDBStore(ctx context.Context, endpoint string) (*dynamodb.Client, e
 	}
 
 	// Allow custom endpoint for local development
-	clientOptions := []func(*dynamodb.Options){}
+	var clientOptions []func(*dynamodb.Options)
 	if endpoint != "" {
 		clientOptions = append(clientOptions, func(o *dynamodb.Options) {
 			o.BaseEndpoint = aws.String(endpoint)

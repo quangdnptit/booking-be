@@ -140,7 +140,7 @@ func (r *DynamoBookingRepo) UpdateStatus(ctx context.Context, id, status string)
 	_, err = r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.table),
 		Key: map[string]types.AttributeValue{
-			"id":         &types.AttributeValueMemberS{Value: b.ID},
+			//"id":         &types.AttributeValueMemberS{Value: b.ID},
 			"created_at": &types.AttributeValueMemberS{Value: b.CreatedAt},
 		},
 		UpdateExpression: aws.String("SET #status = :status"),
