@@ -11,7 +11,7 @@ func BookedSeatRepo2Domain(r repomodel.BookedSeatRecord) models.BookedSeat {
 		ID:         r.ID,
 		BookingID:  r.BookingID,
 		ShowtimeID: r.ShowtimeID,
-		SeatID:     r.SeatID,
+		SeatID:     r.SeatKey,
 		Status:     r.Status,
 	}
 }
@@ -22,7 +22,7 @@ func BookedSeatDomain2Repo(s models.BookedSeat) repomodel.BookedSeatRecord {
 		ID:         s.ID,
 		BookingID:  s.BookingID,
 		ShowtimeID: s.ShowtimeID,
-		SeatID:     s.SeatID,
+		SeatKey:    s.SeatID,
 		Status:     s.Status,
 	}
 }

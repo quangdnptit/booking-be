@@ -8,37 +8,40 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"booking-be/handlers"
+	"booking-be/repo"
+	"booking-be/service"
 	"booking-be/storage"
 )
 
 func main() {
+	ctx := context.Background()
 	dynamoDBEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
 
-	log.Println("Initializing DynamoDB store...")
-	store, err := storage.NewDynamoDBStore(context.Background(), dynamoDBEndpoint)
+	// Single DynamoDB client (DI)
+	log.Println("Initializing DynamoDB client...")
+	dynamodbStore, err := storage.NewDynamoDBStore(ctx, dynamoDBEndpoint)
+	if err != nil {
+		log.Fatalf("failed to create DynamoDB client: %v", err)
+	}
+
 	if err != nil {
 		log.Fatalf("failed to initialize DynamoDB store: %v", err)
 	}
-	log.Println("DynamoDB store initialized successfully")
 
-	// Initialize handlers
-	handler := handlers.NewHandler(store)
+	// Repos (showtime bookings + booked seats)
+	bookingRepo := repo.NewDynamoBookingRepo(dynamodbStore, "bookings")
+	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(dynamodbStore, "booked_seats")
 
+	// Service (DI: store + repos)
+	svc := service.NewService(bookingRepo, bookedSeatRepo)
+
+	// Handler (DI: service)
+	handler := handlers.NewHandler(svc)
 	// Setup router
 	router := gin.Default()
 
 	// Health endpoint
 	router.GET("/health", handler.HealthCheck)
-
-	// Room endpoints
-	router.GET("/rooms", handler.ListRooms)
-	router.GET("/rooms/:id", handler.GetRoom)
-	router.GET("/rooms/:id/availability", handler.CheckAvailability)
-
-	// Booking endpoints
-	router.POST("/bookings", handler.CreateBooking)
-	router.GET("/bookings", handler.ListBookings)
-	router.GET("/bookings/:id", handler.GetBooking)
 
 	// Start server
 	port := os.Getenv("PORT")

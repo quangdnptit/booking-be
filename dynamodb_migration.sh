@@ -6,7 +6,7 @@ AWS_DEFAULT_REGION=us-east-1
 ENDPOINT="--endpoint-url http://localhost:8000"
 REGION="--region us-east-1"
 
-set -e  # stop script if any command fails
+set -e
 
 echo "Creating BOOKINGS table..."
 
@@ -15,12 +15,12 @@ aws dynamodb create-table \
   --table-name bookings \
   --attribute-definitions \
       AttributeName=id,AttributeType=S \
+      AttributeName=created_at,AttributeType=S \
       AttributeName=user_id,AttributeType=S \
       AttributeName=showtime_id,AttributeType=S \
-      AttributeName=status,AttributeType=S \
-      AttributeName=created_at,AttributeType=S \
   --key-schema \
       AttributeName=id,KeyType=HASH \
+      AttributeName=created_at,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST \
   --global-secondary-indexes '[
       {
@@ -38,14 +38,6 @@ aws dynamodb create-table \
           {"AttributeName":"created_at","KeyType":"RANGE"}
         ],
         "Projection": {"ProjectionType":"ALL"}
-      },
-      {
-        "IndexName": "status-bookings-index",
-        "KeySchema": [
-          {"AttributeName":"status","KeyType":"HASH"},
-          {"AttributeName":"created_at","KeyType":"RANGE"}
-        ],
-        "Projection": {"ProjectionType":"ALL"}
       }
   ]'
 
@@ -55,36 +47,19 @@ aws dynamodb create-table \
   $ENDPOINT $REGION \
   --table-name booked_seats \
   --attribute-definitions \
-      AttributeName=id,AttributeType=S \
-      AttributeName=booking_id,AttributeType=S \
       AttributeName=showtime_id,AttributeType=S \
-      AttributeName=seat_id,AttributeType=S \
-      AttributeName=status,AttributeType=S \
+      AttributeName=seat_key,AttributeType=S \
+      AttributeName=booking_id,AttributeType=S \
   --key-schema \
-      AttributeName=id,KeyType=HASH \
+      AttributeName=showtime_id,KeyType=HASH \
+      AttributeName=seat_key,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST \
   --global-secondary-indexes '[
       {
         "IndexName": "booking-seats-index",
         "KeySchema": [
           {"AttributeName":"booking_id","KeyType":"HASH"},
-          {"AttributeName":"seat_id","KeyType":"RANGE"}
-        ],
-        "Projection": {"ProjectionType":"ALL"}
-      },
-      {
-        "IndexName": "showtime-seats-index",
-        "KeySchema": [
-          {"AttributeName":"showtime_id","KeyType":"HASH"},
-          {"AttributeName":"seat_id","KeyType":"RANGE"}
-        ],
-        "Projection": {"ProjectionType":"ALL"}
-      },
-      {
-        "IndexName": "status-seats-index",
-        "KeySchema": [
-          {"AttributeName":"status","KeyType":"HASH"},
-          {"AttributeName":"seat_id","KeyType":"RANGE"}
+          {"AttributeName":"seat_key","KeyType":"RANGE"}
         ],
         "Projection": {"ProjectionType":"ALL"}
       }

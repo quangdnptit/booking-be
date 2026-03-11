@@ -11,11 +11,11 @@ type BookingRecord struct {
 }
 
 // BookedSeatRecord is the persistence model for the DynamoDB booked_seats table.
-// Used only within the repo layer for marshalling to/from DynamoDB.
+// Table key: pk=showtime_id, sk=seat_key.
 type BookedSeatRecord struct {
 	ID         string `dynamodbav:"id"`
 	BookingID  string `dynamodbav:"booking_id"`
 	ShowtimeID string `dynamodbav:"showtime_id"`
-	SeatID     string `dynamodbav:"seat_id"`
+	SeatKey    string `dynamodbav:"seat_key"`
 	Status     string `dynamodbav:"status"`
 }

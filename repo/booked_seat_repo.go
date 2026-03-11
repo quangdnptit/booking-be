@@ -15,21 +15,18 @@ import (
 )
 
 const (
-	bookingSeatsIndex  = "booking-seats-index"
-	showtimeSeatsIndex = "showtime-seats-index"
-	statusSeatsIndex   = "status-seats-index"
+	bookingSeatsIndex = "booking-seats-index" // booking_id HASH, seat_key RANGE
 )
 
 // BookedSeatRepo defines operations for booked seats in DynamoDB.
-// All methods use the domain model (models.BookedSeat).
+// Table key: pk=showtime_id, sk=seat_key. GSI: booking-seats-index.
 type BookedSeatRepo interface {
-	GetByID(ctx context.Context, id string) (*models.BookedSeat, error)
+	GetByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.BookedSeat, error)
 	GetByBookingID(ctx context.Context, bookingID string) ([]models.BookedSeat, error)
 	GetByShowtimeID(ctx context.Context, showtimeID string) ([]models.BookedSeat, error)
-	GetByStatus(ctx context.Context, status string) ([]models.BookedSeat, error)
 	Create(ctx context.Context, seat models.BookedSeat) error
 	Update(ctx context.Context, seat models.BookedSeat) error
-	UpdateStatus(ctx context.Context, id, status string) error
+	UpdateStatusByKey(ctx context.Context, showtimeID, seatKey, status string) error
 }
 
 // DynamoBookedSeatRepo implements BookedSeatRepo using DynamoDB
@@ -40,18 +37,16 @@ type DynamoBookedSeatRepo struct {
 
 // NewDynamoBookedSeatRepo creates a new DynamoDB-backed booked seat repo
 func NewDynamoBookedSeatRepo(client *dynamodb.Client, tableName string) *DynamoBookedSeatRepo {
-	if tableName == "" {
-		tableName = "booked_seats"
-	}
 	return &DynamoBookedSeatRepo{client: client, table: tableName}
 }
 
-// GetByID returns a booked seat by id (partition key)
-func (r *DynamoBookedSeatRepo) GetByID(ctx context.Context, id string) (*models.BookedSeat, error) {
+// GetByShowtimeIDAndSeatKey returns one item by table pk=showtime_id, sk=seat_key
+func (r *DynamoBookedSeatRepo) GetByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.BookedSeat, error) {
 	out, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.table),
 		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: id},
+			"showtime_id": &types.AttributeValueMemberS{Value: showtimeID},
+			"seat_key":    &types.AttributeValueMemberS{Value: seatKey},
 		},
 	})
 	if err != nil {
@@ -68,7 +63,7 @@ func (r *DynamoBookedSeatRepo) GetByID(ctx context.Context, id string) (*models.
 	return &domain, nil
 }
 
-// GetByBookingID queries by booking_id using booking-seats-index (booking_id HASH, seat_id RANGE)
+// GetByBookingID queries GSI booking-seats-index (booking_id HASH, seat_key RANGE)
 func (r *DynamoBookedSeatRepo) GetByBookingID(ctx context.Context, bookingID string) ([]models.BookedSeat, error) {
 	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.table),
@@ -84,11 +79,10 @@ func (r *DynamoBookedSeatRepo) GetByBookingID(ctx context.Context, bookingID str
 	return unmarshalBookedSeatsToDomain(out.Items)
 }
 
-// GetByShowtimeID queries by showtime_id using showtime-seats-index
+// GetByShowtimeID queries by table pk=showtime_id
 func (r *DynamoBookedSeatRepo) GetByShowtimeID(ctx context.Context, showtimeID string) ([]models.BookedSeat, error) {
 	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.table),
-		IndexName:              aws.String(showtimeSeatsIndex),
 		KeyConditionExpression: aws.String("showtime_id = :sid"),
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":sid": &types.AttributeValueMemberS{Value: showtimeID},
@@ -100,23 +94,7 @@ func (r *DynamoBookedSeatRepo) GetByShowtimeID(ctx context.Context, showtimeID s
 	return unmarshalBookedSeatsToDomain(out.Items)
 }
 
-// GetByStatus queries by status using status-seats-index
-func (r *DynamoBookedSeatRepo) GetByStatus(ctx context.Context, status string) ([]models.BookedSeat, error) {
-	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(r.table),
-		IndexName:              aws.String(statusSeatsIndex),
-		KeyConditionExpression: aws.String("status = :st"),
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":st": &types.AttributeValueMemberS{Value: status},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("query by status: %w", err)
-	}
-	return unmarshalBookedSeatsToDomain(out.Items)
-}
-
-// Create inserts a new booked seat
+// Create inserts a new booked seat (table key: pk=showtime_id, sk=seat_key)
 func (r *DynamoBookedSeatRepo) Create(ctx context.Context, seat models.BookedSeat) error {
 	rec := view.BookedSeatDomain2Repo(seat)
 	item, err := attributevalue.MarshalMap(rec)
@@ -150,12 +128,13 @@ func (r *DynamoBookedSeatRepo) Update(ctx context.Context, seat models.BookedSea
 	return nil
 }
 
-// UpdateStatus updates only the status attribute
-func (r *DynamoBookedSeatRepo) UpdateStatus(ctx context.Context, id, status string) error {
+// UpdateStatusByKey updates status by table key (pk=showtime_id, sk=seat_key)
+func (r *DynamoBookedSeatRepo) UpdateStatusByKey(ctx context.Context, showtimeID, seatKey, status string) error {
 	_, err := r.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
 		TableName: aws.String(r.table),
 		Key: map[string]types.AttributeValue{
-			"id": &types.AttributeValueMemberS{Value: id},
+			"showtime_id": &types.AttributeValueMemberS{Value: showtimeID},
+			"seat_key":    &types.AttributeValueMemberS{Value: seatKey},
 		},
 		UpdateExpression: aws.String("SET #status = :status"),
 		ExpressionAttributeNames: map[string]string{
