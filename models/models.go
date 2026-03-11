@@ -25,3 +25,21 @@ type CreateBookingRequest struct {
 	StartDate string `json:"start_date" binding:"required"`
 	EndDate   string `json:"end_date" binding:"required"`
 }
+
+// Bookings is the domain model for a showtime booking
+type Bookings struct {
+	ID         string `json:"id"`
+	UserID     string `json:"user_id"`
+	ShowtimeID string `json:"showtime_id"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"created_at"`
+}
+
+// BookedSeat is the domain model for a booked seat
+type BookedSeat struct {
+	ID         string `json:"id"`
+	BookingID  string `json:"booking_id"`
+	ShowtimeID string `json:"showtime_id"`
+	SeatID     string `json:"seat_id"`
+	Status     string `json:"status"`
+}

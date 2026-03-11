@@ -12,29 +12,14 @@ import (
 )
 
 func main() {
-	// Load configuration from environment
-	storageType := os.Getenv("STORAGE_TYPE")
-	if storageType == "" {
-		storageType = "memory" // Default to in-memory
-	}
-
 	dynamoDBEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
 
-	// Initialize storage based on configuration
-	var store storage.Store
-	var err error
-
-	if storageType == "dynamodb" {
-		log.Println("Initializing DynamoDB store...")
-		store, err = storage.NewDynamoDBStore(context.Background(), dynamoDBEndpoint)
-		if err != nil {
-			log.Fatalf("failed to initialize DynamoDB store: %v", err)
-		}
-		log.Println("DynamoDB store initialized successfully")
-	} else {
-		log.Println("Initializing in-memory store...")
-		store = storage.NewInMemoryStore()
+	log.Println("Initializing DynamoDB store...")
+	store, err := storage.NewDynamoDBStore(context.Background(), dynamoDBEndpoint)
+	if err != nil {
+		log.Fatalf("failed to initialize DynamoDB store: %v", err)
 	}
+	log.Println("DynamoDB store initialized successfully")
 
 	// Initialize handlers
 	handler := handlers.NewHandler(store)
@@ -63,7 +48,7 @@ func main() {
 		port = ":" + port
 	}
 
-	log.Printf("Starting server on %s using %s storage...", port, storageType)
+	log.Printf("Starting server on %s...", port)
 	if err := router.Run(port); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}

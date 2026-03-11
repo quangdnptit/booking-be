@@ -13,15 +13,15 @@ import (
 	"booking-be/models"
 )
 
-// DynamoDBStore implements Store interface with DynamoDB
-type DynamoDBStore struct {
-	client       *dynamodb.Client
-	roomsTable   string
+// DynamoDB implements Store interface with DynamoDB
+type DynamoDB struct {
+	client        *dynamodb.Client
+	roomsTable    string
 	bookingsTable string
 }
 
 // NewDynamoDBStore creates and initializes a DynamoDB store
-func NewDynamoDBStore(ctx context.Context, endpoint string) (*DynamoDBStore, error) {
+func NewDynamoDBStore(ctx context.Context, endpoint string) (*DynamoDB, error) {
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load SDK config: %w", err)
@@ -37,7 +37,7 @@ func NewDynamoDBStore(ctx context.Context, endpoint string) (*DynamoDBStore, err
 
 	client := dynamodb.NewFromConfig(cfg, clientOptions...)
 
-	store := &DynamoDBStore{
+	store := &DynamoDB{
 		client:        client,
 		roomsTable:    "rooms",
 		bookingsTable: "bookings",
@@ -57,7 +57,7 @@ func NewDynamoDBStore(ctx context.Context, endpoint string) (*DynamoDBStore, err
 }
 
 // initializeTables creates the required tables
-func (s *DynamoDBStore) initializeTables(ctx context.Context) error {
+func (s *DynamoDB) initializeTables(ctx context.Context) error {
 	tables := []struct {
 		name      string
 		partition string
@@ -76,7 +76,7 @@ func (s *DynamoDBStore) initializeTables(ctx context.Context) error {
 }
 
 // createTableIfNotExists creates a table if it doesn't already exist
-func (s *DynamoDBStore) createTableIfNotExists(ctx context.Context, tableName, partitionKey string) error {
+func (s *DynamoDB) createTableIfNotExists(ctx context.Context, tableName, partitionKey string) error {
 	_, err := s.client.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 		TableName: aws.String(tableName),
 	})
@@ -111,7 +111,7 @@ func (s *DynamoDBStore) createTableIfNotExists(ctx context.Context, tableName, p
 }
 
 // seedRooms seeds initial room data
-func (s *DynamoDBStore) seedRooms(ctx context.Context) error {
+func (s *DynamoDB) seedRooms(ctx context.Context) error {
 	rooms := []models.Room{
 		{ID: "room-1", Name: "Deluxe Suite", Capacity: 2, PricePerNight: 150.00},
 		{ID: "room-2", Name: "Family Room", Capacity: 4, PricePerNight: 200.00},
@@ -137,7 +137,7 @@ func (s *DynamoDBStore) seedRooms(ctx context.Context) error {
 }
 
 // GetRooms returns all rooms from DynamoDB
-func (s *DynamoDBStore) GetRooms() []models.Room {
+func (s *DynamoDB) GetRooms() []models.Room {
 	ctx := context.Background()
 	result, err := s.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(s.roomsTable),
@@ -157,7 +157,7 @@ func (s *DynamoDBStore) GetRooms() []models.Room {
 }
 
 // GetRoomByID returns a room by its ID from DynamoDB
-func (s *DynamoDBStore) GetRoomByID(id string) (*models.Room, bool) {
+func (s *DynamoDB) GetRoomByID(id string) (*models.Room, bool) {
 	ctx := context.Background()
 	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(s.roomsTable),
@@ -180,7 +180,7 @@ func (s *DynamoDBStore) GetRoomByID(id string) (*models.Room, bool) {
 }
 
 // GetBookings returns all bookings from DynamoDB
-func (s *DynamoDBStore) GetBookings() []models.Booking {
+func (s *DynamoDB) GetBookings() []models.Booking {
 	ctx := context.Background()
 	result, err := s.client.Scan(ctx, &dynamodb.ScanInput{
 		TableName: aws.String(s.bookingsTable),
@@ -200,7 +200,7 @@ func (s *DynamoDBStore) GetBookings() []models.Booking {
 }
 
 // GetBookingByID returns a booking by its ID from DynamoDB
-func (s *DynamoDBStore) GetBookingByID(id string) (*models.Booking, bool) {
+func (s *DynamoDB) GetBookingByID(id string) (*models.Booking, bool) {
 	ctx := context.Background()
 	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(s.bookingsTable),
@@ -223,7 +223,7 @@ func (s *DynamoDBStore) GetBookingByID(id string) (*models.Booking, bool) {
 }
 
 // CreateBooking creates and stores a new booking in DynamoDB
-func (s *DynamoDBStore) CreateBooking(booking models.Booking) models.Booking {
+func (s *DynamoDB) CreateBooking(booking models.Booking) models.Booking {
 	ctx := context.Background()
 	item, err := attributevalue.MarshalMap(booking)
 	if err != nil {
