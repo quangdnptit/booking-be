@@ -1,8 +1,9 @@
 #!/bin/bash
 
-AWS_ACCESS_KEY_ID=fake
-AWS_SECRET_ACCESS_KEY=fake
-AWS_DEFAULT_REGION=us-east-1
+export AWS_ACCESS_KEY_ID=fake
+export AWS_SECRET_ACCESS_KEY=fake
+export AWS_DEFAULT_REGION=us-east-1
+
 ENDPOINT="--endpoint-url http://localhost:8000"
 REGION="--region us-east-1"
 
@@ -86,7 +87,5 @@ aws dynamodb create-table \
         "Projection": {"ProjectionType":"ALL"}
       }
   ]'
-
-echo "✅ USERS table created"
 
 echo "✅ Tables created successfully"

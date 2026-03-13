@@ -5,10 +5,11 @@ import "github.com/google/uuid"
 type SeatStatus string
 
 const (
-	SeatStatusUnknown   SeatStatus = "UNKNOWN"
-	SeatStatusAvailable SeatStatus = "AVAILABLE"
-	SeatStatusBooked    SeatStatus = "BOOKED"
-	SeatStatusLocked    SeatStatus = "LOCKED"
+	SeatStatusUnknown     SeatStatus = "UNKNOWN"
+	SeatStatusAvailable   SeatStatus = "AVAILABLE"
+	SeatStatusUnAvailable SeatStatus = "UNAVAILABLE"
+	SeatStatusBooked      SeatStatus = "BOOKED"
+	SeatStatusLocked      SeatStatus = "LOCKED"
 )
 
 type SeatType string
@@ -32,14 +33,14 @@ type Bookings struct {
 
 // Seat is the domain model for a booked seat
 type Seat struct {
-	ShowtimeID string
-	SeatKey    string //{row#line}
-	RoomID     uuid.UUID
-	SeatType   SeatType
-	BookingID  string
-	IsActive   string
-	Price      float32
-	SeatStatus SeatStatus
-	CreatedAt  string
-	UpdatedAt  string
+	ShowtimeID string     `json:"showtime_id"`
+	SeatKey    string     `json:"seat_key"` // e.g. row#line
+	RoomID     uuid.UUID  `json:"room_id"`
+	SeatType   SeatType   `json:"seat_type"`
+	BookingID  string     `json:"booking_id"`
+	IsActive   string     `json:"is_active"`
+	Price      float32    `json:"price"`
+	SeatStatus SeatStatus `json:"seat_status"`
+	CreatedAt  string     `json:"created_at,omitempty"`
+	UpdatedAt  string     `json:"updated_at,omitempty"`
 }

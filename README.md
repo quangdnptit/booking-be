@@ -57,7 +57,7 @@ This starts a local DynamoDB instance on `http://localhost:8000`
 
 Copy `.env.example` to `.env`:
 ```bash
-cp .env.example .env
+cp .env .env
 ```
 
 The `.env` file should contain:
