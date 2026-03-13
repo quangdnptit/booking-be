@@ -3,21 +3,16 @@ package handlers
 import (
 	"net/http"
 
-	"booking-be/service"
-
 	"github.com/gin-gonic/gin"
 )
 
 // Handler depends on the service layer (DI)
 type Handler struct {
-	svc *service.BookingService
 }
 
 // NewHandler creates a new handler with the given service
-func NewHandler(svc *service.BookingService) *Handler {
-	return &Handler{
-		svc: svc,
-	}
+func NewHandler() *Handler {
+	return &Handler{}
 }
 
 // HealthCheck handles GET /health

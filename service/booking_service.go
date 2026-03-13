@@ -27,20 +27,21 @@ func NewBookingService(bookingRepo repo.BookingRepo, seatRepo repo.SeatRepo, db 
 }
 
 // BookSeats loads seats, checks availability, builds booking (fixed price per seat), then TransactWriteItems: booking + seat puts.
-func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingRequest) error {
+// On success returns the persisted booking (same ID/totals as stored).
+func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingRequest) (*models.Bookings, error) {
 	if req.UserID == "" || req.ShowtimeID == "" {
-		return fmt.Errorf("user_id and showtime_id are required")
+		return nil, fmt.Errorf("user_id and showtime_id are required")
 	}
 	if len(req.SeatKeys) == 0 {
-		return fmt.Errorf("at least one seat_key is required")
+		return nil, fmt.Errorf("at least one seat_key is required")
 	}
 	if s.db == nil {
-		return fmt.Errorf("dynamo db not configured for transactions")
+		return nil, fmt.Errorf("dynamo db not configured for transactions")
 	}
 
 	seats, err := s.seatRepo.GetByShowtimeIDAndSeatKeys(ctx, req.ShowtimeID, req.SeatKeys)
 	if err != nil {
-		return fmt.Errorf("failed to load seats: %w", err)
+		return nil, fmt.Errorf("failed to load seats: %w", err)
 	}
 	keySeatMap := make(map[string]models.Seat, len(seats))
 	for _, st := range seats {
@@ -48,7 +49,7 @@ func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingR
 	}
 	ordered, err := validateSeatsForBooking(req.ShowtimeID, req.SeatKeys, keySeatMap)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	ts := time.Now().UTC().Format(time.RFC3339)
@@ -64,9 +65,9 @@ func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingR
 	}
 
 	if err := repo.BookSeatsTransaction(ctx, s.db, booking, ordered); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &booking, nil
 }
 
 func validateSeatsForBooking(showtimeID string, seatKeys []string, keySeatMap map[string]models.Seat) ([]models.Seat, error) {

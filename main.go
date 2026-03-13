@@ -19,6 +19,9 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
+	// ZeroLog
 	zerolog.TimeFieldFormat = time.RFC3339
 	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
@@ -27,24 +30,22 @@ func main() {
 		log.Info().Str("event", "config_load").Msg(".env not found, using system env")
 	}
 
-	ctx := context.Background()
-	endpoint := os.Getenv("DYNAMODB_ENDPOINT")
-	log.Info().Str("event", "dynamodb_init").Str("endpoint", endpoint).Msg("creating dynamo client")
-
-	db, err := storage.NewDynamoDBStore(ctx, endpoint)
+	// DynamoDB config
+	db, err := storage.NewDynamoDBStore(ctx, os.Getenv("DYNAMODB_ENDPOINT"))
 	if err != nil {
 		log.Fatal().Err(err).Msg("dynamodb client")
 	}
-	log.Info().Str("event", "dynamodb_ready").Msg("client ok")
 
 	// Init dependencies
 	bookingRepo := repo.NewDynamoBookingRepo(db)
 	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db)
-	svc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
+	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
 	seatService := service.NewSeatService(bookedSeatRepo)
-	handler := handlers.NewHandler(svc)
+	handler := handlers.NewHandler()
 	seatHandler := handlers.NewSeatHandler(seatService)
+	bookingHandler := handlers.NewBookingHandler(bookingSvc)
 
+	// Init Gin Router
 	router := gin.New()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
@@ -60,6 +61,7 @@ func main() {
 	router.GET("/api/v1/health", handler.HealthCheck)
 	router.POST("/api/v1/seats/generate-seats", seatHandler.GenerateSeats)
 	router.GET("/showtimes/:showtimeId/seats", seatHandler.GetSeats)
+	router.POST("/api/v1/bookings", bookingHandler.BookSeats)
 
 	port := os.Getenv("PORT")
 	if port == "" {
