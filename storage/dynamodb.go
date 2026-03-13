@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -36,9 +37,17 @@ func NewDynamoDBStore(ctx context.Context, endpoint string) (*dynamo.DB, error) 
 		cfg, err = config.LoadDefaultConfig(ctx,
 			config.WithRegion(region),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
+			config.WithRetryer(func() aws.Retryer {
+				return retry.NewStandard(dynamo.RetryTxConflicts)
+			}),
 		)
 	} else {
-		cfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(region))
+		cfg, err = config.LoadDefaultConfig(ctx,
+			config.WithRegion(region),
+			config.WithRetryer(func() aws.Retryer {
+				return retry.NewStandard(dynamo.RetryTxConflicts)
+			}),
+		)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("unable to load SDK config: %w", err)
