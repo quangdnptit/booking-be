@@ -8,13 +8,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Handler depends on the servic e layer (DI)
+// Handler depends on the service layer (DI)
 type Handler struct {
-	svc *service.Service
+	svc *service.BookingService
 }
 
 // NewHandler creates a new handler with the given service
-func NewHandler(svc *service.Service) *Handler {
+func NewHandler(svc *service.BookingService) *Handler {
 	return &Handler{
 		svc: svc,
 	}

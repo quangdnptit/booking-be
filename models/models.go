@@ -23,6 +23,7 @@ const (
 
 // Bookings is the domain model for a showtime booking
 type Bookings struct {
+	ID          string
 	UserID      string
 	ShowtimeID  string
 	TotalAmount float64
@@ -43,4 +44,10 @@ type Seat struct {
 	SeatStatus SeatStatus `json:"seat_status"`
 	CreatedAt  string     `json:"created_at,omitempty"`
 	UpdatedAt  string     `json:"updated_at,omitempty"`
+}
+
+type SeatsBookingRequest struct {
+	ShowtimeID string   `json:"showtime_id"`
+	SeatKeys   []string `json:"seat_keys"`
+	UserID     string   `json:"user_id"`
 }

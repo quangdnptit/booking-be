@@ -2,63 +2,73 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"booking-be/handlers"
+	"booking-be/internal/observability"
 	"booking-be/repo"
 	"booking-be/service"
 	"booking-be/storage"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println(".env file not found, using system env")
+	zerolog.TimeFieldFormat = time.RFC3339
+	log.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
+	if err := godotenv.Load(); err != nil {
+		log.Info().Str("event", "config_load").Msg(".env not found, using system env")
 	}
 
 	ctx := context.Background()
-	dynamoDBEndpoint := os.Getenv("DYNAMODB_ENDPOINT")
+	endpoint := os.Getenv("DYNAMODB_ENDPOINT")
+	log.Info().Str("event", "dynamodb_init").Str("endpoint", endpoint).Msg("creating dynamo client")
 
-	// Single DynamoDB client
-	log.Println("Initializing DynamoDB client...")
-	dynamodbStore, err := storage.NewDynamoDBStore(ctx, dynamoDBEndpoint)
+	db, err := storage.NewDynamoDBStore(ctx, endpoint)
 	if err != nil {
-		log.Fatalf("failed to create DynamoDB client: %v", err)
+		log.Fatal().Err(err).Msg("dynamodb client")
 	}
+	log.Info().Str("event", "dynamodb_ready").Msg("client ok")
 
-	// Repos
-	bookingRepo := repo.NewDynamoBookingRepo(dynamodbStore, "bookings")
-	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(dynamodbStore, "booked_seats")
-
-	// Services
-	svc := service.NewService(bookingRepo, bookedSeatRepo)
+	// Init dependencies
+	bookingRepo := repo.NewDynamoBookingRepo(db, "bookings")
+	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db, "booked_seats")
+	svc := service.NewBookingService(bookingRepo, bookedSeatRepo)
 	seatService := service.NewSeatService(bookedSeatRepo)
-
-	// Handlers
 	handler := handlers.NewHandler(svc)
 	seatHandler := handlers.NewSeatHandler(seatService)
 
-	// Setup router
-	router := gin.Default()
-	// Health endpoint
-	router.GET("/api/v1/health", handler.HealthCheck)
-	// Handle Seat endpoints
-	router.POST("/api/v1/seats/generate-seats", seatHandler.GenerateSeats)
+	router := gin.New()
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+	router.Use(gin.Recovery())
+	router.Use(observability.TracingMiddleware())
 
-	// Start server
+	router.GET("/api/v1/health", handler.HealthCheck)
+	router.POST("/api/v1/seats/generate-seats", seatHandler.GenerateSeats)
+	router.GET("/showtimes/:showtimeId/seats", seatHandler.GetSeats)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = ":8080"
 	} else if port[0] != ':' {
 		port = ":" + port
 	}
-
-	log.Printf("Starting server on %s...", port)
+	log.Info().Str("event", "server_listen").Str("addr", port).Msg("listening")
 	if err := router.Run(port); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+		log.Fatal().Err(err).Msg("server")
 	}
 }

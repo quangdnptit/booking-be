@@ -3,55 +3,59 @@ package handlers
 import (
 	"net/http"
 
+	"booking-be/internal/observability"
 	"booking-be/models"
 	"booking-be/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
-// SeatHandler depends on the service layer (DI)
 type SeatHandler struct {
 	svc *service.SeatService
 }
 
-// NewSeatHandler creates a new handler with the given service
 func NewSeatHandler(svc *service.SeatService) *SeatHandler {
-	return &SeatHandler{
-		svc: svc,
-	}
+	return &SeatHandler{svc: svc}
 }
 
-// generateSeatsRequest is the JSON body for POST /api/v1/seats/generate-seats
 type generateSeatsRequest struct {
 	Seats []models.Seat `json:"seats"`
 }
 
-// SeatGenerate reads seats from the request body and batch-saves them.
-// Body example:
-//
-//	{
-//	  "seats": [
-//	    {
-//	      "showtime_id": "st-1",
-//	      "seat_key": "A#1",
-//	      "room_id": "550e8400-e29b-41d4-a716-446655440000",
-//	      "seat_type": "STANDARD",
-//	      "booking_id": "",
-//	      "is_active": "true",
-//	      "price": 12.5,
-//	      "seat_status": "AVAILABLE"
-//	    }
-//	  ]
-//	}
 func (h *SeatHandler) GenerateSeats(c *gin.Context) {
+	traceID := observability.TraceIDFromContext(c.Request.Context())
 	var req generateSeatsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Warn().Str("trace_id", traceID).Str("event", "generate_seats_invalid_body").Err(err).Send()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	if err := h.svc.GenerateSeats(c.Request.Context(), req.Seats); err != nil {
+		log.Error().Str("trace_id", traceID).Str("event", "generate_seats_failed").Int("seat_count", len(req.Seats)).Err(err).Send()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	log.Info().Str("trace_id", traceID).Str("event", "generate_seats_ok").Int("seat_count", len(req.Seats)).Send()
 	c.JSON(http.StatusCreated, gin.H{"message": "seats saved", "count": len(req.Seats)})
+}
+
+func (h *SeatHandler) GetSeats(c *gin.Context) {
+	traceID := observability.TraceIDFromContext(c.Request.Context())
+	showtimeID := c.Param("showtimeId")
+	if showtimeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "showtimeId is required"})
+		return
+	}
+	seats, err := h.svc.GetSeats(c.Request.Context(), showtimeID)
+	if err != nil {
+		log.Error().Str("trace_id", traceID).Str("event", "get_seats_failed").Str("showtime_id", showtimeID).Err(err).Send()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if seats == nil {
+		seats = []models.Seat{}
+	}
+	log.Info().Str("trace_id", traceID).Str("event", "get_seats_ok").Str("showtime_id", showtimeID).Int("count", len(seats)).Send()
+	c.JSON(http.StatusOK, gin.H{"seats": seats})
 }
