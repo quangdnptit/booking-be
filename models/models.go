@@ -1,22 +1,45 @@
 package models
 
+import "github.com/google/uuid"
+
+type SeatStatus string
+
+const (
+	SeatStatusUnknown   SeatStatus = "UNKNOWN"
+	SeatStatusAvailable SeatStatus = "AVAILABLE"
+	SeatStatusBooked    SeatStatus = "BOOKED"
+	SeatStatusLocked    SeatStatus = "LOCKED"
+)
+
+type SeatType string
+
+const (
+	SeatTypeUnknown    SeatType = "UNKNOWN"
+	SeatTypeStandard   SeatType = "STANDARD"
+	SeatTypePremium    SeatType = "PREMIUM"
+	SeatTypeWheelChair SeatType = "WHEELCHAIR"
+)
+
 // Bookings is the domain model for a showtime booking
 type Bookings struct {
-	UserID      string  `dynamodbav:"user_id"`
-	ShowtimeID  string  `dynamodbav:"showtime_id"`
-	TotalAmount float64 `dynamodbav:"total_amount"`
-	Status      string  `dynamodbav:"status"`
-	CreatedAt   string  `dynamodbav:"created_at"`
-	UpdatedAt   string  `dynamodbav:"updated_at"`
+	UserID      string
+	ShowtimeID  string
+	TotalAmount float64
+	Status      string
+	CreatedAt   string
+	UpdatedAt   string
 }
 
-// BookedSeat is the domain model for a booked seat
-type BookedSeat struct {
-	ShowtimeID string  `dynamodbav:"showtime_id"`
-	SeatKey    string  `dynamodbav:"seat_key"`
-	BookingID  string  `dynamodbav:"booking_id"`
-	Status     string  `dynamodbav:"status"`
-	Price      float32 `dynamodbav:"price"`
-	CreatedAt  string  `dynamodbav:"created_at"`
-	UpdatedAt  string  `dynamodbav:"updated_at"`
+// Seat is the domain model for a booked seat
+type Seat struct {
+	ShowtimeID string
+	SeatKey    string //{row#line}
+	RoomID     uuid.UUID
+	SeatType   SeatType
+	BookingID  string
+	IsActive   string
+	Price      float32
+	SeatStatus SeatStatus
+	CreatedAt  string
+	UpdatedAt  string
 }

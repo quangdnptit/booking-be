@@ -11,11 +11,11 @@ import (
 // All dependencies are injected via the constructor.
 type Service struct {
 	bookingRepo    repo.BookingRepo
-	bookedSeatRepo repo.BookedSeatRepo
+	bookedSeatRepo repo.SeatRepo
 }
 
 // NewService creates a Service with the given dependencies (DI)
-func NewService(bookingRepo repo.BookingRepo, bookedSeatRepo repo.BookedSeatRepo) *Service {
+func NewService(bookingRepo repo.BookingRepo, bookedSeatRepo repo.SeatRepo) *Service {
 	return &Service{
 		bookingRepo:    bookingRepo,
 		bookedSeatRepo: bookedSeatRepo,
@@ -49,23 +49,19 @@ func (s *Service) UpdateShowtimeBookingStatus(ctx context.Context, id, status st
 
 // --- Booked seats (via repo) ---
 
-func (s *Service) GetBookedSeatByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.BookedSeat, error) {
+func (s *Service) GetBookedSeatByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.Seat, error) {
 	return s.bookedSeatRepo.GetByShowtimeIDAndSeatKey(ctx, showtimeID, seatKey)
 }
 
-func (s *Service) GetBookedSeatsByBookingID(ctx context.Context, bookingID string) ([]models.BookedSeat, error) {
+func (s *Service) GetBookedSeatsByBookingID(ctx context.Context, bookingID string) ([]models.Seat, error) {
 	return s.bookedSeatRepo.GetByBookingID(ctx, bookingID)
 }
 
-func (s *Service) GetBookedSeatsByShowtimeID(ctx context.Context, showtimeID string) ([]models.BookedSeat, error) {
+func (s *Service) GetBookedSeatsByShowtimeID(ctx context.Context, showtimeID string) ([]models.Seat, error) {
 	return s.bookedSeatRepo.GetByShowtimeID(ctx, showtimeID)
 }
 
-func (s *Service) CreateBookedSeat(ctx context.Context, seat models.BookedSeat) error {
-	return s.bookedSeatRepo.Create(ctx, seat)
-}
-
-func (s *Service) UpdateBookedSeat(ctx context.Context, seat models.BookedSeat) error {
+func (s *Service) UpdateBookedSeat(ctx context.Context, seat models.Seat) error {
 	return s.bookedSeatRepo.Update(ctx, seat)
 }
 

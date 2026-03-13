@@ -8,19 +8,23 @@ import (
 // BookingRepo2Domain maps a repo (persistence) record to the domain model
 func BookingRepo2Domain(r repomodel.BookingRecord) models.Bookings {
 	return models.Bookings{
-		UserID:     r.UserID,
-		ShowtimeID: r.ShowtimeID,
-		Status:     r.Status,
-		CreatedAt:  r.CreatedAt,
+		UserID:      r.UserID,
+		ShowtimeID:  r.ShowtimeID,
+		TotalAmount: r.TotalAmount,
+		Status:      r.Status,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
 	}
 }
 
 // BookingDomain2Repo maps the domain model to a repo (persistence) record
 func BookingDomain2Repo(b models.Bookings) repomodel.BookingRecord {
 	return repomodel.BookingRecord{
-		UserID:     b.UserID,
-		ShowtimeID: b.ShowtimeID,
-		Status:     b.Status,
-		CreatedAt:  b.CreatedAt,
+		UserID:      b.UserID,
+		ShowtimeID:  b.ShowtimeID,
+		TotalAmount: b.TotalAmount,
+		Status:      b.Status,
+		CreatedAt:   b.CreatedAt,
+		UpdatedAt:   b.UpdatedAt,
 	}
 }

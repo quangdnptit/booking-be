@@ -65,4 +65,28 @@ aws dynamodb create-table \
       }
   ]'
 
+
+echo "Creating USERS table..."
+
+aws dynamodb create-table \
+  $ENDPOINT $REGION \
+  --table-name users \
+  --attribute-definitions \
+      AttributeName=email,AttributeType=S \
+      AttributeName=user_id,AttributeType=S \
+  --key-schema \
+      AttributeName=email,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --global-secondary-indexes '[
+      {
+        "IndexName": "user-id-index",
+        "KeySchema": [
+          {"AttributeName":"user_id","KeyType":"HASH"}
+        ],
+        "Projection": {"ProjectionType":"ALL"}
+      }
+  ]'
+
+echo "✅ USERS table created"
+
 echo "✅ Tables created successfully"

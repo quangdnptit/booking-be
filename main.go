@@ -42,6 +42,7 @@ func main() {
 
 	// Health endpoint
 	router.GET("/health", handler.HealthCheck)
+	router.GET("/health", handler.HealthCheck)
 
 	// Start server
 	port := os.Getenv("PORT")

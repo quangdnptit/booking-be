@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Handler depends on the service layer (DI)
+// Handler depends on the servic e layer (DI)
 type Handler struct {
 	svc *service.Service
 }

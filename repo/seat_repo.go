@@ -19,18 +19,22 @@ const (
 	bookingSeatsIndex = "booking-seats-index" // booking_id HASH, seat_key RANGE
 )
 
-// BookedSeatRepo defines operations for booked seats in DynamoDB.
+// batchWriteMaxItems is DynamoDB BatchWriteItem limit per request
+const batchWriteMaxItems = 25
+
+// SeatRepo defines operations for booked seats in DynamoDB.
 // Table key: pk=showtime_id, sk=seat_key. GSI: booking-seats-index.
-type BookedSeatRepo interface {
-	GetByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.BookedSeat, error)
-	GetByBookingID(ctx context.Context, bookingID string) ([]models.BookedSeat, error)
-	GetByShowtimeID(ctx context.Context, showtimeID string) ([]models.BookedSeat, error)
-	Create(ctx context.Context, seat models.BookedSeat) error
-	Update(ctx context.Context, seat models.BookedSeat) error
+type SeatRepo interface {
+	GetByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.Seat, error)
+	GetByBookingID(ctx context.Context, bookingID string) ([]models.Seat, error)
+	GetByShowtimeID(ctx context.Context, showtimeID string) ([]models.Seat, error)
+	Update(ctx context.Context, seat models.Seat) error
 	UpdateStatusByKey(ctx context.Context, showtimeID, seatKey, status string) error
+	// GenerateSeats converts domain seats to repo records and batch-writes them (Put)
+	GenerateSeats(ctx context.Context, seats []models.Seat) error
 }
 
-// DynamoBookedSeatRepo implements BookedSeatRepo using DynamoDB
+// DynamoBookedSeatRepo implements SeatRepo using DynamoDB
 type DynamoBookedSeatRepo struct {
 	client *dynamodb.Client
 	table  string
@@ -42,7 +46,7 @@ func NewDynamoBookedSeatRepo(client *dynamodb.Client, tableName string) *DynamoB
 }
 
 // GetByShowtimeIDAndSeatKey returns one item by table pk=showtime_id, sk=seat_key
-func (r *DynamoBookedSeatRepo) GetByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.BookedSeat, error) {
+func (r *DynamoBookedSeatRepo) GetByShowtimeIDAndSeatKey(ctx context.Context, showtimeID, seatKey string) (*models.Seat, error) {
 	out, err := r.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(r.table),
 		Key: map[string]types.AttributeValue{
@@ -65,7 +69,7 @@ func (r *DynamoBookedSeatRepo) GetByShowtimeIDAndSeatKey(ctx context.Context, sh
 }
 
 // GetByBookingID queries GSI booking-seats-index (booking_id HASH, seat_key RANGE)
-func (r *DynamoBookedSeatRepo) GetByBookingID(ctx context.Context, bookingID string) ([]models.BookedSeat, error) {
+func (r *DynamoBookedSeatRepo) GetByBookingID(ctx context.Context, bookingID string) ([]models.Seat, error) {
 	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.table),
 		IndexName:              aws.String(bookingSeatsIndex),
@@ -81,7 +85,7 @@ func (r *DynamoBookedSeatRepo) GetByBookingID(ctx context.Context, bookingID str
 }
 
 // GetByShowtimeID queries by table pk=showtime_id
-func (r *DynamoBookedSeatRepo) GetByShowtimeID(ctx context.Context, showtimeID string) ([]models.BookedSeat, error) {
+func (r *DynamoBookedSeatRepo) GetByShowtimeID(ctx context.Context, showtimeID string) ([]models.Seat, error) {
 	out, err := r.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(r.table),
 		KeyConditionExpression: aws.String("showtime_id = :sid"),
@@ -95,24 +99,7 @@ func (r *DynamoBookedSeatRepo) GetByShowtimeID(ctx context.Context, showtimeID s
 	return unmarshalBookedSeatsToDomain(out.Items)
 }
 
-// Create inserts a new booked seat (table key: pk=showtime_id, sk=seat_key)
-func (r *DynamoBookedSeatRepo) Create(ctx context.Context, seat models.BookedSeat) error {
-	rec := view.BookedSeatDomain2Repo(seat)
-	item, err := attributevalue.MarshalMap(rec)
-	if err != nil {
-		return fmt.Errorf("marshal booked seat: %w", err)
-	}
-	_, err = r.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(r.table),
-		Item:      item,
-	})
-	if err != nil {
-		return fmt.Errorf("put booked seat: %w", err)
-	}
-	return nil
-}
-
-func (r *DynamoBookedSeatRepo) Update(ctx context.Context, seat models.BookedSeat) error {
+func (r *DynamoBookedSeatRepo) Update(ctx context.Context, seat models.Seat) error {
 	rec := view.BookedSeatDomain2Repo(seat)
 
 	key, err := attributevalue.MarshalMap(map[string]string{
@@ -169,7 +156,81 @@ func (r *DynamoBookedSeatRepo) UpdateStatusByKey(ctx context.Context, showtimeID
 	return nil
 }
 
-func unmarshalBookedSeatsToDomain(items []map[string]types.AttributeValue) ([]models.BookedSeat, error) {
+// GenerateSeats maps domain seats to repo records and batch-saves with BatchWriteItem
+func (r *DynamoBookedSeatRepo) GenerateSeats(ctx context.Context, seats []models.Seat) error {
+	if len(seats) == 0 {
+		return nil
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	writes := make([]types.WriteRequest, 0, len(seats))
+	for i := range seats {
+		s := seats[i]
+		if s.ShowtimeID == "" || s.SeatKey == "" {
+			return fmt.Errorf("seat %d: showtime_id and seat_key are required", i)
+		}
+		if s.CreatedAt == "" {
+			s.CreatedAt = now
+		}
+		if s.UpdatedAt == "" {
+			s.UpdatedAt = now
+		}
+
+		rec := view.BookedSeatDomain2Repo(s)
+		item, err := attributevalue.MarshalMap(rec)
+
+		if err != nil {
+			return fmt.Errorf("marshal seat %s/%s: %w", s.ShowtimeID, s.SeatKey, err)
+		}
+		writes = append(writes, types.WriteRequest{
+			PutRequest: &types.PutRequest{Item: item},
+		})
+	}
+	for start := 0; start < len(writes); start += batchWriteMaxItems {
+		end := start + batchWriteMaxItems
+		if end > len(writes) {
+			end = len(writes)
+		}
+		chunk := writes[start:end]
+		if err := r.batchWriteWithRetry(ctx, chunk); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *DynamoBookedSeatRepo) batchWriteWithRetry(ctx context.Context, writes []types.WriteRequest) error {
+	unprocessed := writes
+	backoff := 50 * time.Millisecond
+	for attempt := 0; attempt < 10 && len(unprocessed) > 0; attempt++ {
+		out, err := r.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]types.WriteRequest{
+				r.table: unprocessed,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("batch write seats: %w", err)
+		}
+		next := out.UnprocessedItems[r.table]
+		if len(next) == 0 {
+			return nil
+		}
+		unprocessed = next
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+		if backoff < 2*time.Second {
+			backoff *= 2
+		}
+	}
+	if len(unprocessed) > 0 {
+		return fmt.Errorf("batch write: %d unprocessed items after retries", len(unprocessed))
+	}
+	return nil
+}
+
+func unmarshalBookedSeatsToDomain(items []map[string]types.AttributeValue) ([]models.Seat, error) {
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -177,7 +238,7 @@ func unmarshalBookedSeatsToDomain(items []map[string]types.AttributeValue) ([]mo
 	if err := attributevalue.UnmarshalListOfMaps(items, &records); err != nil {
 		return nil, err
 	}
-	out := make([]models.BookedSeat, len(records))
+	out := make([]models.Seat, len(records))
 	for i := range records {
 		out[i] = view.BookedSeatRepo2Domain(records[i])
 	}
