@@ -38,9 +38,9 @@ func main() {
 	log.Info().Str("event", "dynamodb_ready").Msg("client ok")
 
 	// Init dependencies
-	bookingRepo := repo.NewDynamoBookingRepo(db, "bookings")
-	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db, "booked_seats")
-	svc := service.NewBookingService(bookingRepo, bookedSeatRepo)
+	bookingRepo := repo.NewDynamoBookingRepo(db)
+	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db)
+	svc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
 	seatService := service.NewSeatService(bookedSeatRepo)
 	handler := handlers.NewHandler(svc)
 	seatHandler := handlers.NewSeatHandler(seatService)

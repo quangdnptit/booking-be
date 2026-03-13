@@ -28,8 +28,8 @@ type DynamoBookedSeatRepo struct {
 }
 
 // NewDynamoBookedSeatRepo creates a repo backed by the given dynamo.DB.
-func NewDynamoBookedSeatRepo(db *dynamo.DB, tableName string) *DynamoBookedSeatRepo {
-	return &DynamoBookedSeatRepo{table: db.Table(tableName)}
+func NewDynamoBookedSeatRepo(db *dynamo.DB) *DynamoBookedSeatRepo {
+	return &DynamoBookedSeatRepo{table: db.Table(TableBookedSeats)}
 }
 
 func (r *DynamoBookedSeatRepo) GetByShowtimeIDAndSeatKeys(

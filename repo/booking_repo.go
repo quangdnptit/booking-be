@@ -29,8 +29,8 @@ type DynamoBookingRepo struct {
 	table dynamo.Table
 }
 
-func NewDynamoBookingRepo(db *dynamo.DB, tableName string) *DynamoBookingRepo {
-	return &DynamoBookingRepo{table: db.Table(tableName)}
+func NewDynamoBookingRepo(db *dynamo.DB) *DynamoBookingRepo {
+	return &DynamoBookingRepo{table: db.Table(TableBookings)}
 }
 
 func (r *DynamoBookingRepo) GetByID(ctx context.Context, id string) (*models.Bookings, error) {
