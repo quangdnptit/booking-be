@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"booking-be/handlers"
+	"booking-be/internal/auth"
 	"booking-be/internal/observability"
 	"booking-be/repo"
 	"booking-be/service"
@@ -39,11 +40,21 @@ func main() {
 	// Init dependencies
 	bookingRepo := repo.NewDynamoBookingRepo(db)
 	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db)
+	userRepo := repo.NewDynamoUserRepo(db)
 	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
 	seatService := service.NewSeatService(bookedSeatRepo)
+	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtTTL := time.Hour
+	if s := os.Getenv("JWT_TTL_SECONDS"); s != "" {
+		if sec, err := time.ParseDuration(s + "s"); err == nil && sec > 0 {
+			jwtTTL = sec
+		}
+	}
+	authSvc := service.NewAuthService(userRepo, jwtSecret, jwtTTL)
 	handler := handlers.NewHandler()
 	seatHandler := handlers.NewSeatHandler(seatService)
 	bookingHandler := handlers.NewBookingHandler(bookingSvc)
+	authHandler := handlers.NewAuthHandler(authSvc)
 
 	// Init Gin Router
 	router := gin.New()
@@ -57,15 +68,23 @@ func main() {
 	}))
 	router.Use(gin.Recovery())
 	router.Use(observability.TracingMiddleware())
-
+	// Router mapping — public
 	router.GET("/api/v1/health", handler.HealthCheck)
-	router.POST("/api/v1/seats/generate-seats", seatHandler.GenerateSeats)
+	router.POST("/api/v1/auth/login", authHandler.Login)
+	router.POST("/api/v1/auth/register", authHandler.Register)
+	router.POST("/api/v1/register", authHandler.Register)
 	router.GET("/showtimes/:showtimeId/seats", seatHandler.GetSeats)
-	router.POST("/api/v1/bookings", bookingHandler.BookSeats)
+
+	// JWT Auth middleware config
+	protected := router.Group("")
+	protected.Use(auth.JWTAuthMiddleware(jwtSecret))
+	protected.POST("/api/v1/seats/generate-seats", seatHandler.GenerateSeats)
+	protected.POST("/api/v1/bookings", bookingHandler.BookSeats)
+	protected.GET("/api/v1/users/:userId/bookings", bookingHandler.GetUserBookingHistory)
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = ":8080"
+		port = ":8888"
 	} else if port[0] != ':' {
 		port = ":" + port
 	}

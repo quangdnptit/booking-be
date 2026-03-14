@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"booking-be/internal/auth"
 	"booking-be/internal/observability"
 	"booking-be/models"
 	"booking-be/service"
@@ -29,6 +30,12 @@ func (h *BookingHandler) BookSeats(c *gin.Context) {
 		log.Warn().Str("trace_id", traceID).Str("event", "book_seats_invalid_body").Err(err).Send()
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if sub, ok := c.Get(auth.ContextUserID); ok {
+		if jwtUser, _ := sub.(string); jwtUser != "" && strings.TrimSpace(req.UserID) != jwtUser {
+			c.JSON(http.StatusForbidden, gin.H{"error": "user_id must match authenticated user"})
+			return
+		}
 	}
 
 	booking, err := h.svc.BookSeats(c.Request.Context(), req)
@@ -58,5 +65,36 @@ func (h *BookingHandler) BookSeats(c *gin.Context) {
 		"total_amount": booking.TotalAmount,
 		"status":       booking.Status,
 		"seat_count":   len(req.SeatKeys),
+	})
+}
+
+// GetUserBookingHistory handles GET /api/v1/users/:userId/bookings — list bookings from the bookings table.
+func (h *BookingHandler) GetUserBookingHistory(c *gin.Context) {
+	traceID := observability.TraceIDFromContext(c.Request.Context())
+	userID := strings.TrimSpace(c.Param("userId"))
+	if userID == "" {
+		log.Warn().Str("trace_id", traceID).Str("event", "booking_history_missing_user").Send()
+		c.JSON(http.StatusBadRequest, gin.H{"error": "userId path parameter is required"})
+		return
+	}
+	if sub, ok := c.Get(auth.ContextUserID); ok {
+		if jwtUser, _ := sub.(string); jwtUser != "" && userID != jwtUser {
+			c.JSON(http.StatusForbidden, gin.H{"error": "cannot access another user's bookings"})
+			return
+		}
+	}
+
+	bookings, err := h.svc.GetUserBookingHistory(c.Request.Context(), userID)
+	if err != nil {
+		log.Error().Str("trace_id", traceID).Str("event", "booking_history_failed").Err(err).Send()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Info().Str("trace_id", traceID).Str("event", "booking_history_ok").Str("user_id", userID).Int("count", len(bookings)).Send()
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":  userID,
+		"bookings": bookings,
+		"count":    len(bookings),
 	})
 }

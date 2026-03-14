@@ -30,13 +30,10 @@ func NewBookingService(bookingRepo repo.BookingRepo, seatRepo repo.SeatRepo, db 
 // On success returns the persisted booking (same ID/totals as stored).
 func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingRequest) (*models.Bookings, error) {
 	if req.UserID == "" || req.ShowtimeID == "" {
-		return nil, fmt.Errorf("user_id and showtime_id are required")
+		return nil, fmt.Errorf("user_id and showtime_id must be not null")
 	}
 	if len(req.SeatKeys) == 0 {
-		return nil, fmt.Errorf("at least one seat_key is required")
-	}
-	if s.db == nil {
-		return nil, fmt.Errorf("dynamo db not configured for transactions")
+		return nil, fmt.Errorf("you must select at least one seat")
 	}
 
 	seats, err := s.seatRepo.GetByShowtimeIDAndSeatKeys(ctx, req.ShowtimeID, req.SeatKeys)
@@ -68,6 +65,21 @@ func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingR
 		return nil, err
 	}
 	return &booking, nil
+}
+
+// GetUserBookingHistory returns all bookings for a user from the bookings table (user-bookings-index).
+func (s *BookingService) GetUserBookingHistory(ctx context.Context, userID string) ([]models.Bookings, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("user_id is required")
+	}
+	list, err := s.bookingRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("load booking history: %w", err)
+	}
+	if list == nil {
+		return []models.Bookings{}, nil
+	}
+	return list, nil
 }
 
 func validateSeatsForBooking(showtimeID string, seatKeys []string, keySeatMap map[string]models.Seat) ([]models.Seat, error) {

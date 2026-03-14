@@ -147,6 +147,47 @@ go build -o app main.go
 | `AWS_ACCESS_KEY_ID` | `` | AWS credentials (for AWS DynamoDB) |
 | `AWS_SECRET_ACCESS_KEY` | `` | AWS credentials (for AWS DynamoDB) |
 | `AWS_REGION` | `` | AWS region (for AWS DynamoDB) |
+| `JWT_SECRET` | _(empty)_ | If set, **JWT middleware** protects: `POST /api/v1/seats/generate-seats`, `POST /api/v1/bookings`, `GET /api/v1/users/:userId/bookings`. Use `Authorization: Bearer <token>`. |
+| `JWT_TTL_SECONDS` | `3600` | Access token lifetime in seconds. |
+
+### Auth (users table + JWT)
+
+1. Create DynamoDB table **`users`** (partition key **`email`** string):
+
+   ```bash
+   aws dynamodb create-table --cli-input-json file://scripts/create-users-table.json --endpoint-url http://localhost:8000
+   ```
+
+   (Use your region/endpoint for AWS.)  
+   **Note:** If you still have an old table keyed by `username`, create a new table or migrate; identity is now **email**.
+
+2. Set **`JWT_SECRET`**.
+
+3. **Register** (matches register form: full name + email + password only):  
+   **`POST /api/v1/auth/register`** or **`POST /api/v1/register`**
+
+   ```json
+   {
+     "full_name": "Alice Nguyen",
+     "email": "alice@example.com",
+     "password": "secret12345"
+   }
+   ```
+
+   - **email** — normalized to lowercase; unique identity (PK).  
+   - **full_name** — display only.  
+   - **password** — min 8 characters; stored as bcrypt hash.  
+   - Response **201**: `user_id`, `email`, `full_name`, timestamps; plus **`access_token`** when `JWT_SECRET` is set.  
+   - **409** if email already registered.
+
+   **Users item attributes:** `email` (PK), `full_name`, `password_hash`, `user_id` (JWT `sub`), `is_active`, `amount`, `avatar`, `created_at`, `updated_at`.
+
+4. **Login**: `POST /api/v1/auth/login`  
+   `{ "email": "alice@example.com", "password": "..." }`  
+   Response: `access_token`, `user_id`, `email`, `full_name`, etc.; **`updated_at`** refreshed on login.
+
+5. Protected routes: `Authorization: Bearer <access_token>`.  
+   `user_id` on book/history must match JWT `sub`.
 
 ## Development
 
