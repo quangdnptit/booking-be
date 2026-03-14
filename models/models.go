@@ -68,6 +68,28 @@ type MovieResponse struct {
 	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
+// RoomResponse matches cms-booking RoomResponse.
+type RoomResponse struct {
+	ID          string    `json:"id"`
+	TheaterID   string    `json:"theaterId"`
+	TheaterName string    `json:"theaterName,omitempty"`
+	Name        string    `json:"name"`
+	TotalSeats  int       `json:"totalSeats"`
+	TotalRows   int       `json:"totalRows"`
+	SeatsPerRow int       `json:"seatsPerRow"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+// TheaterResponse matches cms-booking TheaterResponse.
+type TheaterResponse struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Location  string    `json:"location"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // ShowtimeResponse matches cms-booking ShowtimeResponse.
 type ShowtimeResponse struct {
 	ID          string     `json:"id"`

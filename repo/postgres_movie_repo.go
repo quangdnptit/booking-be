@@ -153,3 +153,83 @@ func (r *PostgresProgramRepo) GetShowtimeByID(ctx context.Context, id string) (*
 	}
 	return &s, nil
 }
+
+func scanTheaterResponse(row pgx.Row) (models.TheaterResponse, error) {
+	var t models.TheaterResponse
+	err := row.Scan(&t.ID, &t.Name, &t.Location, &t.CreatedAt, &t.UpdatedAt)
+	return t, err
+}
+
+// ListTheaters mirrors TheaterService.findAll (theaters + V2 updated_at).
+func (r *PostgresProgramRepo) ListTheaters(ctx context.Context) ([]models.TheaterResponse, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, name, location, created_at, updated_at
+		FROM theaters
+		ORDER BY name ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list theaters: %w", err)
+	}
+	defer rows.Close()
+	var out []models.TheaterResponse
+	for rows.Next() {
+		t, err := scanTheaterResponse(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// GetTheaterByID mirrors TheaterService.findById.
+func (r *PostgresProgramRepo) GetTheaterByID(ctx context.Context, id string) (*models.TheaterResponse, error) {
+	row := r.pool.QueryRow(ctx, `
+		SELECT id, name, location, created_at, updated_at
+		FROM theaters WHERE id = $1::uuid
+	`, id)
+	t, err := scanTheaterResponse(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("get theater: %w", err)
+	}
+	return &t, nil
+}
+
+func scanRoomResponse(row pgx.Row) (models.RoomResponse, error) {
+	var rm models.RoomResponse
+	err := row.Scan(
+		&rm.ID, &rm.TheaterID, &rm.TheaterName, &rm.Name,
+		&rm.TotalSeats, &rm.TotalRows, &rm.SeatsPerRow,
+		&rm.CreatedAt, &rm.UpdatedAt,
+	)
+	return rm, err
+}
+
+// ListRoomsByTheaterID mirrors RoomService.findByTheater.
+func (r *PostgresProgramRepo) ListRoomsByTheaterID(ctx context.Context, theaterID string) ([]models.RoomResponse, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT r.id, r.theater_id, t.name, r.name,
+		       r.total_seats, r.total_rows, r.seats_per_row,
+		       r.created_at, r.updated_at
+		FROM rooms r
+		JOIN theaters t ON t.id = r.theater_id
+		WHERE r.theater_id = $1::uuid
+		ORDER BY r.name ASC
+	`, theaterID)
+	if err != nil {
+		return nil, fmt.Errorf("list rooms by theater: %w", err)
+	}
+	defer rows.Close()
+	var out []models.RoomResponse
+	for rows.Next() {
+		rm, err := scanRoomResponse(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, rm)
+	}
+	return out, rows.Err()
+}

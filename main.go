@@ -97,6 +97,9 @@ func main() {
 	router.GET("/api/movies/:id", programHandler.GetMovieByID)
 	router.GET("/api/showtimes", programHandler.ListShowtimes)
 	router.GET("/api/showtimes/:id", programHandler.GetShowtimeByID)
+	router.GET("/api/theaters", programHandler.ListTheaters)
+	router.GET("/api/theaters/:id", programHandler.GetTheaterByID)
+	router.GET("/api/rooms/theater/:theaterId", programHandler.ListRoomsByTheater)
 
 	// JWT Auth middleware config
 	protected := router.Group("")

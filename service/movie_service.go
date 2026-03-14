@@ -31,3 +31,15 @@ func (s *ProgramService) ListShowtimes(ctx context.Context) ([]models.ShowtimeRe
 func (s *ProgramService) GetShowtimeByID(ctx context.Context, id string) (*models.ShowtimeResponse, error) {
 	return s.repo.GetShowtimeByID(ctx, id)
 }
+
+func (s *ProgramService) ListTheaters(ctx context.Context) ([]models.TheaterResponse, error) {
+	return s.repo.ListTheaters(ctx)
+}
+
+func (s *ProgramService) GetTheaterByID(ctx context.Context, id string) (*models.TheaterResponse, error) {
+	return s.repo.GetTheaterByID(ctx, id)
+}
+
+func (s *ProgramService) ListRoomsByTheaterID(ctx context.Context, theaterID string) ([]models.RoomResponse, error) {
+	return s.repo.ListRoomsByTheaterID(ctx, theaterID)
+}
