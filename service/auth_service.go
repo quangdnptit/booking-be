@@ -24,45 +24,63 @@ var (
 	ErrAccountInactive        = errors.New("account is not active")
 	ErrUserMisconfigured      = errors.New("user record misconfigured")
 	ErrEmailAlreadyRegistered = errors.New("email already registered")
+	ErrInvalidRefreshToken    = errors.New("invalid or expired refresh token")
 )
 
 // LoginResult is what the handler serializes after a successful login.
 type LoginResult struct {
-	AccessToken string
-	ExpiresIn   int
-	UserID      string
-	Email       string
-	FullName    string
-	IsActive    bool
-	Amount      float64
-	Avatar      string
-	CreatedAt   string
-	UpdatedAt   string
+	AccessToken      string
+	ExpiresIn        int
+	RefreshToken     string
+	RefreshExpiresIn int
+	UserID           string
+	Email            string
+	FullName         string
+	IsActive         bool
+	Amount           float64
+	Avatar           string
+	CreatedAt        string
+	UpdatedAt        string
 }
 
 // RegisterResult is returned after successful registration.
 type RegisterResult struct {
-	UserID      string
-	Email       string
-	FullName    string
-	CreatedAt   string
-	UpdatedAt   string
-	AccessToken string
-	ExpiresIn   int
+	UserID           string
+	Email            string
+	FullName         string
+	CreatedAt        string
+	UpdatedAt        string
+	AccessToken      string
+	ExpiresIn        int
+	RefreshToken     string
+	RefreshExpiresIn int
+}
+
+// TokenPair is returned by Refresh.
+type TokenPair struct {
+	AccessToken      string
+	ExpiresIn        int
+	RefreshToken     string
+	RefreshExpiresIn int
+	TokenType        string
 }
 
 // AuthService orchestrates user auth (repo + bcrypt + JWT).
 type AuthService struct {
-	users  repo.UserRepo
-	secret string
-	ttl    time.Duration
+	users      repo.UserRepo
+	secret     string
+	accessTTL  time.Duration
+	refreshTTL time.Duration
 }
 
-func NewAuthService(users repo.UserRepo, jwtSecret string, ttl time.Duration) *AuthService {
-	if ttl <= 0 {
-		ttl = time.Hour
+func NewAuthService(users repo.UserRepo, jwtSecret string, accessTTL, refreshTTL time.Duration) *AuthService {
+	if accessTTL <= 0 {
+		accessTTL = time.Hour
 	}
-	return &AuthService{users: users, secret: jwtSecret, ttl: ttl}
+	if refreshTTL <= 0 {
+		refreshTTL = 7 * 24 * time.Hour
+	}
+	return &AuthService{users: users, secret: jwtSecret, accessTTL: accessTTL, refreshTTL: refreshTTL}
 }
 
 func normalizeEmail(s string) string {
@@ -82,7 +100,19 @@ func userIsActive(rec *repomodel.UserRecord) bool {
 	return s == "" || s == "true" || s == "1" || s == "active"
 }
 
-// Login validates credentials and returns a JWT-backed result.
+func (s *AuthService) issueTokens(userID, email string) (access, refresh string, expIn, refreshExpIn int, err error) {
+	access, err = auth.SignAccessToken(s.secret, userID, s.accessTTL)
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	refresh, err = auth.SignRefreshToken(s.secret, userID, email, s.refreshTTL)
+	if err != nil {
+		return "", "", 0, 0, err
+	}
+	return access, refresh, int(s.accessTTL.Seconds()), int(s.refreshTTL.Seconds()), nil
+}
+
+// Login validates credentials and returns access + refresh JWTs.
 func (s *AuthService) Login(ctx context.Context, email, password string) (*LoginResult, error) {
 	email = normalizeEmail(email)
 	if email == "" || password == "" {
@@ -107,28 +137,30 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	_ = s.users.UpdateAudit(ctx, rec.Email, now) // best effort
+	_ = s.users.UpdateAudit(ctx, rec.Email, now)
 
-	token, err := auth.SignAccessToken(s.secret, rec.UserID, s.ttl)
+	access, refresh, expIn, refreshExpIn, err := s.issueTokens(rec.UserID, rec.Email)
 	if err != nil {
 		return nil, fmt.Errorf("sign token: %w", err)
 	}
 
 	return &LoginResult{
-		AccessToken: token,
-		ExpiresIn:   int(s.ttl.Seconds()),
-		UserID:      rec.UserID,
-		Email:       rec.Email,
-		FullName:    rec.FullName,
-		IsActive:    userIsActive(rec),
-		Amount:      rec.Amount,
-		Avatar:      rec.Avatar,
-		CreatedAt:   rec.CreatedAt,
-		UpdatedAt:   now,
+		AccessToken:      access,
+		ExpiresIn:        expIn,
+		RefreshToken:     refresh,
+		RefreshExpiresIn: refreshExpIn,
+		UserID:           rec.UserID,
+		Email:            rec.Email,
+		FullName:         rec.FullName,
+		IsActive:         userIsActive(rec),
+		Amount:           rec.Amount,
+		Avatar:           rec.Avatar,
+		CreatedAt:        rec.CreatedAt,
+		UpdatedAt:        now,
 	}, nil
 }
 
-// Register creates a user with bcrypt password and returns a JWT
+// Register creates a user and returns access + refresh JWTs.
 func (s *AuthService) Register(ctx context.Context, fullName, email, password string) (*RegisterResult, error) {
 	fullName = strings.TrimSpace(fullName)
 	email = normalizeEmail(email)
@@ -164,17 +196,53 @@ func (s *AuthService) Register(ctx context.Context, fullName, email, password st
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
-	token, err := auth.SignAccessToken(s.secret, rec.UserID, s.ttl)
+	access, refresh, expIn, refreshExpIn, err := s.issueTokens(rec.UserID, rec.Email)
 	if err != nil {
 		return nil, fmt.Errorf("sign token: %w", err)
 	}
 	return &RegisterResult{
-		UserID:      rec.UserID,
-		Email:       rec.Email,
-		FullName:    rec.FullName,
-		CreatedAt:   rec.CreatedAt,
-		UpdatedAt:   rec.UpdatedAt,
-		AccessToken: token,
-		ExpiresIn:   int(s.ttl.Seconds()),
+		UserID:           rec.UserID,
+		Email:            rec.Email,
+		FullName:         rec.FullName,
+		CreatedAt:        rec.CreatedAt,
+		UpdatedAt:        rec.UpdatedAt,
+		AccessToken:      access,
+		ExpiresIn:        expIn,
+		RefreshToken:     refresh,
+		RefreshExpiresIn: refreshExpIn,
+	}, nil
+}
+
+// Refresh exchanges a valid refresh token for new access + refresh tokens (rotation).
+func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenPair, error) {
+	refreshToken = strings.TrimSpace(refreshToken)
+	if refreshToken == "" {
+		return nil, ErrInvalidRefreshToken
+	}
+	userID, email, err := auth.ParseRefreshToken(s.secret, refreshToken)
+	if err != nil {
+		return nil, ErrInvalidRefreshToken
+	}
+	rec, err := s.users.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, fmt.Errorf("load user: %w", err)
+	}
+	if rec == nil || rec.UserID != userID {
+		return nil, ErrInvalidRefreshToken
+	}
+	if !userIsActive(rec) {
+		return nil, ErrAccountInactive
+	}
+
+	access, refresh, expIn, refreshExpIn, err := s.issueTokens(rec.UserID, rec.Email)
+	if err != nil {
+		return nil, fmt.Errorf("sign token: %w", err)
+	}
+	return &TokenPair{
+		AccessToken:      access,
+		ExpiresIn:        expIn,
+		RefreshToken:     refresh,
+		RefreshExpiresIn: refreshExpIn,
+		TokenType:        "Bearer",
 	}, nil
 }

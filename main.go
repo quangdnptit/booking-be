@@ -66,7 +66,13 @@ func main() {
 			jwtTTL = sec
 		}
 	}
-	authSvc := service.NewAuthService(userRepo, jwtSecret, jwtTTL)
+	refreshTTL := 7 * 24 * time.Hour
+	if s := os.Getenv("JWT_REFRESH_TTL_SECONDS"); s != "" {
+		if sec, err := time.ParseDuration(s + "s"); err == nil && sec > 0 {
+			refreshTTL = sec
+		}
+	}
+	authSvc := service.NewAuthService(userRepo, jwtSecret, jwtTTL, refreshTTL)
 	handler := handlers.NewHandler()
 	seatHandler := handlers.NewSeatHandler(seatService)
 	bookingHandler := handlers.NewBookingHandler(bookingSvc)
@@ -91,6 +97,7 @@ func main() {
 	router.GET("/api/v1/health", handler.HealthCheck)
 	router.POST("/api/v1/auth/login", authHandler.Login)
 	router.POST("/api/v1/auth/register", authHandler.Register)
+	router.POST("/api/v1/auth/refresh", authHandler.Refresh)
 	router.POST("/api/v1/register", authHandler.Register)
 	router.GET("/showtimes/:showtimeId/seats", seatHandler.GetSeats)
 	router.GET("/api/movies", programHandler.ListMovies)

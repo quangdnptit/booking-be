@@ -62,17 +62,19 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	log.Info().Str("trace_id", traceID).Str("event", "auth_login_ok").Str("email", res.Email).Send()
 	c.JSON(http.StatusOK, gin.H{
-		"access_token": res.AccessToken,
-		"token_type":   "Bearer",
-		"expires_in":   res.ExpiresIn,
-		"user_id":      res.UserID,
-		"email":        res.Email,
-		"full_name":    res.FullName,
-		"is_active":    res.IsActive,
-		"amount":       res.Amount,
-		"avatar":       res.Avatar,
-		"created_at":   res.CreatedAt,
-		"updated_at":   res.UpdatedAt,
+		"access_token":       res.AccessToken,
+		"token_type":         "Bearer",
+		"expires_in":         res.ExpiresIn,
+		"refresh_token":      res.RefreshToken,
+		"refresh_expires_in": res.RefreshExpiresIn,
+		"user_id":            res.UserID,
+		"email":              res.Email,
+		"full_name":          res.FullName,
+		"is_active":          res.IsActive,
+		"amount":             res.Amount,
+		"avatar":             res.Avatar,
+		"created_at":         res.CreatedAt,
+		"updated_at":         res.UpdatedAt,
 	})
 }
 
@@ -103,14 +105,51 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 	log.Info().Str("trace_id", traceID).Str("event", "auth_register_ok").Str("email", res.Email).Send()
 	c.JSON(http.StatusCreated, gin.H{
-		"message":      "registered successfully",
-		"email":        res.Email,
-		"full_name":    res.FullName,
-		"user_id":      res.UserID,
-		"created_at":   res.CreatedAt,
-		"updated_at":   res.UpdatedAt,
-		"access_token": res.AccessToken,
-		"token_type":   "Bearer",
-		"expires_in":   res.ExpiresIn,
+		"message":            "registered successfully",
+		"email":              res.Email,
+		"full_name":          res.FullName,
+		"user_id":            res.UserID,
+		"created_at":         res.CreatedAt,
+		"updated_at":         res.UpdatedAt,
+		"access_token":       res.AccessToken,
+		"token_type":         "Bearer",
+		"expires_in":         res.ExpiresIn,
+		"refresh_token":      res.RefreshToken,
+		"refresh_expires_in": res.RefreshExpiresIn,
+	})
+}
+
+type refreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// Refresh POST /api/v1/auth/refresh — new access + refresh tokens.
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	traceID := observability.TraceIDFromContext(c.Request.Context())
+	var req refreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "refresh_token required"})
+		return
+	}
+	pair, err := h.svc.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidRefreshToken):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": service.ErrInvalidRefreshToken.Error()})
+		case errors.Is(err, service.ErrAccountInactive):
+			c.JSON(http.StatusForbidden, gin.H{"error": service.ErrAccountInactive.Error()})
+		default:
+			log.Error().Str("trace_id", traceID).Err(err).Str("event", "auth_refresh_failed").Send()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "refresh failed"})
+		}
+		return
+	}
+	log.Info().Str("trace_id", traceID).Str("event", "auth_refresh_ok").Send()
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":       pair.AccessToken,
+		"token_type":         pair.TokenType,
+		"expires_in":         pair.ExpiresIn,
+		"refresh_token":      pair.RefreshToken,
+		"refresh_expires_in": pair.RefreshExpiresIn,
 	})
 }
