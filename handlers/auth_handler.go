@@ -41,9 +41,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	res, err := h.svc.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrJWTSecretRequired):
-			log.Warn().Str("trace_id", traceID).Str("event", "auth_login_no_secret").Send()
-			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "JWT_SECRET not configured"})
 		case errors.Is(err, service.ErrInvalidCredentials):
 			log.Warn().Str("trace_id", traceID).Str("event", "auth_login_denied").Send()
 			c.JSON(http.StatusUnauthorized, gin.H{"error": service.ErrInvalidCredentials.Error()})
@@ -105,18 +102,15 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 	log.Info().Str("trace_id", traceID).Str("event", "auth_register_ok").Str("email", res.Email).Send()
-	out := gin.H{
-		"message":    "registered successfully",
-		"email":      res.Email,
-		"full_name":  res.FullName,
-		"user_id":    res.UserID,
-		"created_at": res.CreatedAt,
-		"updated_at": res.UpdatedAt,
-	}
-	if res.AccessToken != "" {
-		out["access_token"] = res.AccessToken
-		out["token_type"] = "Bearer"
-		out["expires_in"] = res.ExpiresIn
-	}
-	c.JSON(http.StatusCreated, out)
+	c.JSON(http.StatusCreated, gin.H{
+		"message":      "registered successfully",
+		"email":        res.Email,
+		"full_name":    res.FullName,
+		"user_id":      res.UserID,
+		"created_at":   res.CreatedAt,
+		"updated_at":   res.UpdatedAt,
+		"access_token": res.AccessToken,
+		"token_type":   "Bearer",
+		"expires_in":   res.ExpiresIn,
+	})
 }

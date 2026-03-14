@@ -1,6 +1,10 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type SeatStatus string
 
@@ -50,4 +54,32 @@ type SeatsBookingRequest struct {
 	ShowtimeID string   `json:"showtime_id"`
 	SeatKeys   []string `json:"seat_keys"`
 	UserID     string   `json:"user_id"`
+}
+
+type MovieResponse struct {
+	ID              string    `json:"id"`
+	Title           string    `json:"title"`
+	Description     string    `json:"description,omitempty"`
+	DurationMinutes int       `json:"durationMinutes"`
+	Genre           string    `json:"genre,omitempty"`
+	AgeRating       string    `json:"ageRating,omitempty"`
+	PosterURL       string    `json:"posterUrl,omitempty"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+// ShowtimeResponse matches cms-booking ShowtimeResponse.
+type ShowtimeResponse struct {
+	ID          string     `json:"id"`
+	MovieID     string     `json:"movieId"`
+	MovieTitle  string     `json:"movieTitle,omitempty"`
+	RoomID      string     `json:"roomId"`
+	RoomName    string     `json:"roomName,omitempty"`
+	StartTime   time.Time  `json:"startTime"`
+	EndTime     time.Time  `json:"endTime"`
+	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+	IsPublished bool       `json:"isPublished"`
+	BasePrice   float64    `json:"basePrice"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
 }

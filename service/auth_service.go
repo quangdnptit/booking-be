@@ -20,7 +20,6 @@ import (
 const minPasswordRunes = 8
 
 var (
-	ErrJWTSecretRequired      = errors.New("jwt secret required")
 	ErrInvalidCredentials     = errors.New("invalid email or password")
 	ErrAccountInactive        = errors.New("account is not active")
 	ErrUserMisconfigured      = errors.New("user record misconfigured")
@@ -48,7 +47,7 @@ type RegisterResult struct {
 	FullName    string
 	CreatedAt   string
 	UpdatedAt   string
-	AccessToken string // empty if JWT secret not configured
+	AccessToken string
 	ExpiresIn   int
 }
 
@@ -63,7 +62,7 @@ func NewAuthService(users repo.UserRepo, jwtSecret string, ttl time.Duration) *A
 	if ttl <= 0 {
 		ttl = time.Hour
 	}
-	return &AuthService{users: users, secret: strings.TrimSpace(jwtSecret), ttl: ttl}
+	return &AuthService{users: users, secret: jwtSecret, ttl: ttl}
 }
 
 func normalizeEmail(s string) string {
@@ -85,9 +84,6 @@ func userIsActive(rec *repomodel.UserRecord) bool {
 
 // Login validates credentials and returns a JWT-backed result.
 func (s *AuthService) Login(ctx context.Context, email, password string) (*LoginResult, error) {
-	if s.secret == "" {
-		return nil, ErrJWTSecretRequired
-	}
 	email = normalizeEmail(email)
 	if email == "" || password == "" {
 		return nil, fmt.Errorf("email and password required")
@@ -132,7 +128,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 	}, nil
 }
 
-// Register creates a user with bcrypt password; optional JWT when secret is set.
+// Register creates a user with bcrypt password and returns a JWT
 func (s *AuthService) Register(ctx context.Context, fullName, email, password string) (*RegisterResult, error) {
 	fullName = strings.TrimSpace(fullName)
 	email = normalizeEmail(email)
@@ -168,18 +164,17 @@ func (s *AuthService) Register(ctx context.Context, fullName, email, password st
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
-	out := &RegisterResult{
-		UserID:    rec.UserID,
-		Email:     rec.Email,
-		FullName:  rec.FullName,
-		CreatedAt: rec.CreatedAt,
-		UpdatedAt: rec.UpdatedAt,
+	token, err := auth.SignAccessToken(s.secret, rec.UserID, s.ttl)
+	if err != nil {
+		return nil, fmt.Errorf("sign token: %w", err)
 	}
-	if s.secret != "" {
-		if token, err := auth.SignAccessToken(s.secret, rec.UserID, s.ttl); err == nil {
-			out.AccessToken = token
-			out.ExpiresIn = int(s.ttl.Seconds())
-		}
-	}
-	return out, nil
+	return &RegisterResult{
+		UserID:      rec.UserID,
+		Email:       rec.Email,
+		FullName:    rec.FullName,
+		CreatedAt:   rec.CreatedAt,
+		UpdatedAt:   rec.UpdatedAt,
+		AccessToken: token,
+		ExpiresIn:   int(s.ttl.Seconds()),
+	}, nil
 }

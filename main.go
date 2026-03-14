@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -37,13 +38,28 @@ func main() {
 		log.Fatal().Err(err).Msg("dynamodb client")
 	}
 
+	// PostgreSQL
+	pgCfg, err := storage.LoadPostgresConfigFromEnv()
+	if err != nil {
+		log.Fatal().Err(err).Str("event", "config").Msg("postgres config")
+	}
+	pgPool, err := storage.NewPostgresPool(ctx, pgCfg)
+	if err != nil {
+		log.Fatal().Err(err).Msg("postgres client")
+	}
+	defer pgPool.Close()
+	log.Info().Str("event", "postgres_ready").Msg("postgresql pool connected")
+
 	// Init dependencies
 	bookingRepo := repo.NewDynamoBookingRepo(db)
 	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db)
 	userRepo := repo.NewDynamoUserRepo(db)
 	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
 	seatService := service.NewSeatService(bookedSeatRepo)
-	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	if jwtSecret == "" {
+		log.Fatal().Str("event", "config").Msg("JWT_SECRET is required")
+	}
 	jwtTTL := time.Hour
 	if s := os.Getenv("JWT_TTL_SECONDS"); s != "" {
 		if sec, err := time.ParseDuration(s + "s"); err == nil && sec > 0 {
@@ -55,6 +71,9 @@ func main() {
 	seatHandler := handlers.NewSeatHandler(seatService)
 	bookingHandler := handlers.NewBookingHandler(bookingSvc)
 	authHandler := handlers.NewAuthHandler(authSvc)
+	programRepo := repo.NewPostgresProgramRepo(pgPool)
+	programSvc := service.NewProgramService(programRepo)
+	programHandler := handlers.NewProgramHandler(programSvc)
 
 	// Init Gin Router
 	router := gin.New()
@@ -74,6 +93,10 @@ func main() {
 	router.POST("/api/v1/auth/register", authHandler.Register)
 	router.POST("/api/v1/register", authHandler.Register)
 	router.GET("/showtimes/:showtimeId/seats", seatHandler.GetSeats)
+	router.GET("/api/movies", programHandler.ListMovies)
+	router.GET("/api/movies/:id", programHandler.GetMovieByID)
+	router.GET("/api/showtimes", programHandler.ListShowtimes)
+	router.GET("/api/showtimes/:id", programHandler.GetShowtimeByID)
 
 	// JWT Auth middleware config
 	protected := router.Group("")
