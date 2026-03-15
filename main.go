@@ -1,6 +1,7 @@
 package main
 
 import (
+	"booking-be/internal/observability"
 	"context"
 	"os"
 	"strings"
@@ -14,7 +15,6 @@ import (
 
 	"booking-be/handlers"
 	"booking-be/internal/auth"
-	"booking-be/internal/observability"
 	"booking-be/repo"
 	"booking-be/service"
 	"booking-be/storage"
@@ -78,21 +78,25 @@ func main() {
 	bookingHandler := handlers.NewBookingHandler(bookingSvc)
 	authHandler := handlers.NewAuthHandler(authSvc)
 	programRepo := repo.NewPostgresProgramRepo(pgPool)
-	programSvc := service.NewProgramService(programRepo)
-	programHandler := handlers.NewProgramHandler(programSvc)
+	programSvc := service.NewMovieService(programRepo)
+	programHandler := handlers.NewMovieHandler(programSvc)
 
 	// Init Gin Router
 	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(observability.TracingMiddleware())
 	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://localhost:5174",
+			"http://localhost:8080",
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-	router.Use(gin.Recovery())
-	router.Use(observability.TracingMiddleware())
 	// Router mapping — public
 	router.GET("/api/v1/health", handler.HealthCheck)
 	router.POST("/api/v1/auth/login", authHandler.Login)

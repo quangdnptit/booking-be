@@ -13,16 +13,16 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// ProgramHandler serves GET /api/movies and GET /api/showtimes (same contract as cms-booking).
-type ProgramHandler struct {
-	svc *service.ProgramService
+// MovieHandler serves GET /api/movies, GET /api/showtimes
+type MovieHandler struct {
+	svc *service.MovieService
 }
 
-func NewProgramHandler(svc *service.ProgramService) *ProgramHandler {
-	return &ProgramHandler{svc: svc}
+func NewMovieHandler(svc *service.MovieService) *MovieHandler {
+	return &MovieHandler{svc: svc}
 }
 
-func (h *ProgramHandler) ListMovies(c *gin.Context) {
+func (h *MovieHandler) ListMovies(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	list, err := h.svc.ListMovies(c.Request.Context())
 	if err != nil {
@@ -37,7 +37,7 @@ func (h *ProgramHandler) ListMovies(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-func (h *ProgramHandler) GetMovieByID(c *gin.Context) {
+func (h *MovieHandler) GetMovieByID(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	id := c.Param("id")
 	if id == "" {
@@ -57,7 +57,7 @@ func (h *ProgramHandler) GetMovieByID(c *gin.Context) {
 	c.JSON(http.StatusOK, m)
 }
 
-func (h *ProgramHandler) ListShowtimes(c *gin.Context) {
+func (h *MovieHandler) ListShowtimes(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	list, err := h.svc.ListShowtimes(c.Request.Context())
 	if err != nil {
@@ -72,7 +72,7 @@ func (h *ProgramHandler) ListShowtimes(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-func (h *ProgramHandler) GetShowtimeByID(c *gin.Context) {
+func (h *MovieHandler) GetShowtimeByID(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	id := c.Param("id")
 	if id == "" {
@@ -92,7 +92,7 @@ func (h *ProgramHandler) GetShowtimeByID(c *gin.Context) {
 	c.JSON(http.StatusOK, s)
 }
 
-func (h *ProgramHandler) ListTheaters(c *gin.Context) {
+func (h *MovieHandler) ListTheaters(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	list, err := h.svc.ListTheaters(c.Request.Context())
 	if err != nil {
@@ -107,7 +107,7 @@ func (h *ProgramHandler) ListTheaters(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-func (h *ProgramHandler) GetTheaterByID(c *gin.Context) {
+func (h *MovieHandler) GetTheaterByID(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	id := c.Param("id")
 	if id == "" {
@@ -128,7 +128,7 @@ func (h *ProgramHandler) GetTheaterByID(c *gin.Context) {
 }
 
 // ListRoomsByTheater GET /api/rooms/theater/:theaterId — same as RoomController.findByTheater.
-func (h *ProgramHandler) ListRoomsByTheater(c *gin.Context) {
+func (h *MovieHandler) ListRoomsByTheater(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	theaterID := c.Param("theaterId")
 	if theaterID == "" {
