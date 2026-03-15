@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"booking-be/internal/auth"
 	"booking-be/internal/observability"
 	"booking-be/service"
 
@@ -151,5 +152,33 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		"expires_in":         pair.ExpiresIn,
 		"refresh_token":      pair.RefreshToken,
 		"refresh_expires_in": pair.RefreshExpiresIn,
+	})
+}
+
+// GetUserInfo GET /api/v1/users/me
+func (h *AuthHandler) GetUserInfo(c *gin.Context) {
+	traceID := observability.TraceIDFromContext(c.Request.Context())
+	userID, _ := c.Get(auth.ContextUserID)
+	uid, _ := userID.(string)
+
+	info, err := h.svc.GetUserInfo(c.Request.Context(), uid)
+	if err != nil {
+		if errors.Is(err, service.ErrUserNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+			return
+		}
+		log.Error().Str("trace_id", traceID).Err(err).Str("event", "get_user_info").Send()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load user info"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":    info.UserID,
+		"email":      info.Email,
+		"full_name":  info.FullName,
+		"balance":    info.Balance,
+		"is_active":  info.IsActive,
+		"avatar":     info.Avatar,
+		"created_at": info.CreatedAt,
+		"updated_at": info.UpdatedAt,
 	})
 }

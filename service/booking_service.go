@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,16 +15,19 @@ import (
 
 const fixedSeatPrice = 20.0
 
+var ErrInsufficientBalance = errors.New("insufficient balance")
+
 // BookingService sits between handlers and persistence.
 type BookingService struct {
 	bookingRepo repo.BookingRepo
 	seatRepo    repo.SeatRepo
+	userRepo    repo.UserRepo
 	db          *dynamo.DB
 }
 
-// NewBookingService creates a service; db is used for atomic BookSeats (table names: repo.TableBookings / repo.TableBookedSeats).
-func NewBookingService(bookingRepo repo.BookingRepo, seatRepo repo.SeatRepo, db *dynamo.DB) *BookingService {
-	return &BookingService{bookingRepo: bookingRepo, seatRepo: seatRepo, db: db}
+// NewBookingService creates a service; db is used for atomic BookSeats (booking + seats + balance deduction).
+func NewBookingService(bookingRepo repo.BookingRepo, seatRepo repo.SeatRepo, userRepo repo.UserRepo, db *dynamo.DB) *BookingService {
+	return &BookingService{bookingRepo: bookingRepo, seatRepo: seatRepo, userRepo: userRepo, db: db}
 }
 
 // BookSeats loads seats, checks availability, builds booking (fixed price per seat), then TransactWriteItems: booking + seat puts.
@@ -49,19 +53,37 @@ func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingR
 		return nil, err
 	}
 
+	totalAmount := fixedSeatPrice * float64(len(ordered))
+	userRec, err := s.userRepo.GetByUserID(ctx, req.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if userRec == nil {
+		return nil, fmt.Errorf("user not found")
+	}
+	if userRec.Amount < totalAmount {
+		return nil, ErrInsufficientBalance
+	}
+
 	ts := time.Now().UTC().Format(time.RFC3339)
 	bookingID := uuid.New().String()
 	booking := models.Bookings{
 		ID:          bookingID,
 		UserID:      req.UserID,
 		ShowtimeID:  req.ShowtimeID,
-		TotalAmount: fixedSeatPrice * float64(len(ordered)),
+		TotalAmount: totalAmount,
 		Status:      "CONFIRMED",
 		CreatedAt:   ts,
 		UpdatedAt:   ts,
 	}
 
-	if err := repo.BookSeatsTransaction(ctx, s.db, booking, ordered); err != nil {
+	deduct := &repo.BalanceDeduction{
+		UserID:        req.UserID,
+		CurrentAmount: userRec.Amount,
+		NewAmount:     userRec.Amount - totalAmount,
+		UpdatedAt:     ts,
+	}
+	if err := repo.BookSeatsTransaction(ctx, s.db, booking, ordered, deduct); err != nil {
 		return nil, err
 	}
 	return &booking, nil

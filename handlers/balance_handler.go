@@ -30,10 +30,7 @@ func (h *BalanceHandler) Deposit(c *gin.Context) {
 	traceID := observability.TraceIDFromContext(c.Request.Context())
 	userID, _ := c.Get(auth.ContextUserID)
 	uid, _ := userID.(string)
-	if uid == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
+
 	var req depositRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "amount is required and must be a number"})

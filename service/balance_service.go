@@ -12,10 +12,7 @@ import (
 	"booking-be/repomodel"
 )
 
-var (
-	ErrDepositAmountInvalid = errors.New("deposit amount must be positive")
-	ErrUserNotFound         = errors.New("user not found")
-)
+var ErrDepositAmountInvalid = errors.New("deposit amount must be positive")
 
 // DepositResult is returned after a successful deposit.
 type DepositResult struct {

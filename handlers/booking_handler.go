@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -42,6 +43,9 @@ func (h *BookingHandler) BookSeats(c *gin.Context) {
 	if err != nil {
 		msg := err.Error()
 		switch {
+		case errors.Is(err, service.ErrInsufficientBalance):
+			log.Warn().Str("trace_id", traceID).Str("event", "book_seats_insufficient_balance").Send()
+			c.JSON(http.StatusPaymentRequired, gin.H{"error": service.ErrInsufficientBalance.Error()})
 		case strings.Contains(msg, "required"), strings.Contains(msg, "not found"), strings.Contains(msg, "not available"), strings.Contains(msg, "already held"):
 			log.Warn().Str("trace_id", traceID).Str("event", "book_seats_bad_request").Err(err).Send()
 			c.JSON(http.StatusBadRequest, gin.H{"error": msg})

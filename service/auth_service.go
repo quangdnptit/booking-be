@@ -25,6 +25,7 @@ var (
 	ErrUserMisconfigured      = errors.New("user record misconfigured")
 	ErrEmailAlreadyRegistered = errors.New("email already registered")
 	ErrInvalidRefreshToken    = errors.New("invalid or expired refresh token")
+	ErrUserNotFound           = errors.New("user not found")
 )
 
 // LoginResult is what the handler serializes after a successful login.
@@ -41,6 +42,18 @@ type LoginResult struct {
 	Avatar           string
 	CreatedAt        string
 	UpdatedAt        string
+}
+
+// UserInfo is returned by GetUserInfo (profile + balance).
+type UserInfo struct {
+	UserID    string  `json:"user_id"`
+	Email     string  `json:"email"`
+	FullName  string  `json:"full_name"`
+	Balance   float64 `json:"balance"`
+	IsActive  bool    `json:"is_active"`
+	Avatar    string  `json:"avatar"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
 }
 
 // RegisterResult is returned after successful registration.
@@ -239,5 +252,26 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*TokenP
 		RefreshToken:     refresh,
 		RefreshExpiresIn: refreshExpIn,
 		TokenType:        "Bearer",
+	}, nil
+}
+
+// GetUserInfo returns profile and balance for the given userID.
+func (s *AuthService) GetUserInfo(ctx context.Context, userID string) (*UserInfo, error) {
+	rec, err := s.users.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	if rec == nil {
+		return nil, ErrUserNotFound
+	}
+	return &UserInfo{
+		UserID:    rec.UserID,
+		Email:     rec.Email,
+		FullName:  rec.FullName,
+		Balance:   rec.Amount,
+		IsActive:  userIsActive(rec),
+		Avatar:    rec.Avatar,
+		CreatedAt: rec.CreatedAt,
+		UpdatedAt: rec.UpdatedAt,
 	}, nil
 }

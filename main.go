@@ -76,7 +76,7 @@ func main() {
 	movieRepo := repo.NewPostgresProgramRepo(pgPool)
 
 	//services
-	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
+	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, userRepo, db)
 	seatService := service.NewSeatService(bookedSeatRepo)
 	authSvc := service.NewAuthService(userRepo, jwtSecret, jwtTTL, refreshTTL)
 	balanceSvc := service.NewBalanceService(userRepo, ledgerRepo)
@@ -125,6 +125,7 @@ func main() {
 	protected := router.Group("")
 	protected.Use(auth.JWTAuthMiddleware(jwtSecret))
 	protected.POST("/api/v1/seats/generate-seats", seatHandler.GenerateSeats)
+	protected.GET("/api/v1/users/me", authHandler.GetUserInfo)
 	protected.POST("/api/v1/bookings", bookingHandler.BookSeats)
 	protected.POST("/api/v1/deposit", balanceHandler.Deposit)
 	protected.GET("/api/v1/users/:userId/bookings", bookingHandler.GetUserBookingHistory)
