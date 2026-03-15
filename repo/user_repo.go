@@ -47,7 +47,7 @@ func (r *DynamoUserRepo) GetByEmail(ctx context.Context, email string) (*repomod
 		return nil, nil
 	}
 	var rec repomodel.UserRecord
-	err := r.table.Get("email", key).Index(IndexEmail).One(ctx, &rec)
+	err := r.table.Get("email", key).Range("sk", dynamo.Equal, repomodel.SKProfile).Index(IndexEmail).One(ctx, &rec)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil, nil
@@ -63,7 +63,7 @@ func (r *DynamoUserRepo) GetByUserID(ctx context.Context, userID string) (*repom
 		return nil, nil
 	}
 	var rec repomodel.UserRecord
-	err := r.table.Get("pk", userPK(userID)).One(ctx, &rec)
+	err := r.table.Get("pk", userPK(userID)).Range("sk", dynamo.Equal, repomodel.SKProfile).One(ctx, &rec)
 	if err != nil {
 		if errors.Is(err, dynamo.ErrNotFound) {
 			return nil, nil
@@ -102,6 +102,7 @@ func (r *DynamoUserRepo) AddBalance(ctx context.Context, userID string, depositA
 	}
 	newAmount := rec.Amount + depositAmount
 	return r.table.Update("pk", rec.Pk).
+		Range("sk", rec.Sk).
 		Set("amount", newAmount).
 		Set("updated_at", updatedAt).
 		Run(ctx)

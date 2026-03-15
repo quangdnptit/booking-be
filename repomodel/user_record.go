@@ -6,8 +6,9 @@ package repomodel
 
 const (
 	PKPrefixUser    = "USER#"
+	PKPrefixBalance = "BALANCE#"
 	SKProfile       = "PROFILE"
-	SKDepositPrefix = "DEPOSIT#"
+	SKDepositPrefix = "DEPOSIT#" // sk=DEPOSIT#<deposit_id> so all deposits are kept for history
 )
 
 // UserRecord is the user profile row. pk=USER#<user_id>, sk=PROFILE
@@ -25,8 +26,7 @@ type UserRecord struct {
 	UpdatedAt    string  `dynamo:"updated_at"`
 }
 
-// BalanceRecord is a deposit row in the same table. pk=USER#<user_id>, sk=DEPOSIT#<deposit_id>
-// Same shape as balance fields (amount, created_at)
+// BalanceRecord is one deposit row; all are kept for history. pk=BALANCE#<user_id>, sk=DEPOSIT#<deposit_id>.
 type BalanceRecord struct {
 	Pk           string  `dynamo:"pk"`
 	Sk           string  `dynamo:"sk"`

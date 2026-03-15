@@ -75,14 +75,17 @@ aws dynamodb create-table \
   --attribute-definitions \
       AttributeName=email,AttributeType=S \
       AttributeName=pk,AttributeType=S \
+      AttributeName=sk,AttributeType=S \
   --key-schema \
       AttributeName=pk,KeyType=HASH \
+      AttributeName=sk,KeyType=RANGE \
   --billing-mode PAY_PER_REQUEST \
   --global-secondary-indexes '[
     {
       "IndexName": "email-index",
       "KeySchema": [
-        {"AttributeName":"email","KeyType":"HASH"}
+        {"AttributeName":"email","KeyType":"HASH"},
+        {"AttributeName":"sk","KeyType":"RANGE"}
       ],
       "Projection": {"ProjectionType":"ALL"}
     }
