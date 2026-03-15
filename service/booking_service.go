@@ -13,8 +13,6 @@ import (
 	"booking-be/repo"
 )
 
-const fixedSeatPrice = 20.0
-
 var ErrInsufficientBalance = errors.New("insufficient balance")
 
 // BookingService sits between handlers and persistence.
@@ -30,7 +28,7 @@ func NewBookingService(bookingRepo repo.BookingRepo, seatRepo repo.SeatRepo, use
 	return &BookingService{bookingRepo: bookingRepo, seatRepo: seatRepo, userRepo: userRepo, db: db}
 }
 
-// BookSeats loads seats, checks availability, builds booking (fixed price per seat), then TransactWriteItems: booking + seat puts.
+// BookSeats loads seats, checks availability, sums seat prices for total, then TransactWriteItems: booking + seat puts + balance deduction.
 // On success returns the persisted booking (same ID/totals as stored).
 func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingRequest) (*models.Bookings, error) {
 	if req.UserID == "" || req.ShowtimeID == "" {
@@ -53,7 +51,10 @@ func (s *BookingService) BookSeats(ctx context.Context, req models.SeatsBookingR
 		return nil, err
 	}
 
-	totalAmount := fixedSeatPrice * float64(len(ordered))
+	var totalAmount float64
+	for _, st := range ordered {
+		totalAmount += float64(st.Price)
+	}
 	userRec, err := s.userRepo.GetByUserID(ctx, req.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("get user: %w", err)

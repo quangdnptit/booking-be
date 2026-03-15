@@ -77,7 +77,8 @@ func main() {
 
 	//services
 	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, userRepo, db)
-	seatService := service.NewSeatService(bookedSeatRepo)
+	seatPriceCfg := service.LoadSeatPriceConfigFromEnv()
+	seatService := service.NewSeatService(bookedSeatRepo, seatPriceCfg)
 	authSvc := service.NewAuthService(userRepo, jwtSecret, jwtTTL, refreshTTL)
 	balanceSvc := service.NewBalanceService(userRepo, ledgerRepo)
 	movieSvc := service.NewMovieService(movieRepo)

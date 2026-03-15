@@ -20,7 +20,8 @@ func NewSeatHandler(svc *service.SeatService) *SeatHandler {
 }
 
 type generateSeatsRequest struct {
-	Seats []models.Seat `json:"seats"`
+	BasePrice float64       `json:"base_price"`
+	Seats     []models.Seat `json:"seats"`
 }
 
 func (h *SeatHandler) GenerateSeats(c *gin.Context) {
@@ -31,7 +32,11 @@ func (h *SeatHandler) GenerateSeats(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if err := h.svc.GenerateSeats(c.Request.Context(), req.Seats); err != nil {
+	if req.BasePrice < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "base_price must be >= 0"})
+		return
+	}
+	if err := h.svc.GenerateSeats(c.Request.Context(), req.BasePrice, req.Seats); err != nil {
 		log.Error().Str("trace_id", traceID).Str("event", "generate_seats_failed").Int("seat_count", len(req.Seats)).Err(err).Send()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
