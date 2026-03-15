@@ -74,18 +74,18 @@ aws dynamodb create-table \
   --table-name users \
   --attribute-definitions \
       AttributeName=email,AttributeType=S \
-      AttributeName=user_id,AttributeType=S \
+      AttributeName=pk,AttributeType=S \
   --key-schema \
-      AttributeName=email,KeyType=HASH \
+      AttributeName=pk,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST \
   --global-secondary-indexes '[
-      {
-        "IndexName": "user-id-index",
-        "KeySchema": [
-          {"AttributeName":"user_id","KeyType":"HASH"}
-        ],
-        "Projection": {"ProjectionType":"ALL"}
-      }
+    {
+      "IndexName": "email-index",
+      "KeySchema": [
+        {"AttributeName":"email","KeyType":"HASH"}
+      ],
+      "Projection": {"ProjectionType":"ALL"}
+    }
   ]'
 
 echo "✅ Tables created successfully"

@@ -49,13 +49,7 @@ func main() {
 	}
 	defer pgPool.Close()
 	log.Info().Str("event", "postgres_ready").Msg("postgresql pool connected")
-
-	// Init dependencies
-	bookingRepo := repo.NewDynamoBookingRepo(db)
-	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db)
-	userRepo := repo.NewDynamoUserRepo(db)
-	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
-	seatService := service.NewSeatService(bookedSeatRepo)
+	//JWT
 	jwtSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
 	if jwtSecret == "" {
 		log.Fatal().Str("event", "config").Msg("JWT_SECRET is required")
@@ -72,14 +66,29 @@ func main() {
 			refreshTTL = sec
 		}
 	}
+
+	// Init dependencies
+	// Repos
+	bookingRepo := repo.NewDynamoBookingRepo(db)
+	bookedSeatRepo := repo.NewDynamoBookedSeatRepo(db)
+	userRepo := repo.NewDynamoUserRepo(db)
+	ledgerRepo := repo.NewDynamoLedgerRepo(db)
+	movieRepo := repo.NewPostgresProgramRepo(pgPool)
+
+	//services
+	bookingSvc := service.NewBookingService(bookingRepo, bookedSeatRepo, db)
+	seatService := service.NewSeatService(bookedSeatRepo)
 	authSvc := service.NewAuthService(userRepo, jwtSecret, jwtTTL, refreshTTL)
+	balanceSvc := service.NewBalanceService(userRepo, ledgerRepo)
+	movieSvc := service.NewMovieService(movieRepo)
+	balanceHandler := handlers.NewBalanceHandler(balanceSvc)
+
+	//Hanlders
 	handler := handlers.NewHandler()
 	seatHandler := handlers.NewSeatHandler(seatService)
 	bookingHandler := handlers.NewBookingHandler(bookingSvc)
+	movieHandler := handlers.NewMovieHandler(movieSvc)
 	authHandler := handlers.NewAuthHandler(authSvc)
-	programRepo := repo.NewPostgresProgramRepo(pgPool)
-	programSvc := service.NewMovieService(programRepo)
-	programHandler := handlers.NewMovieHandler(programSvc)
 
 	// Init Gin Router
 	router := gin.New()
@@ -104,19 +113,20 @@ func main() {
 	router.POST("/api/v1/auth/refresh", authHandler.Refresh)
 	router.POST("/api/v1/register", authHandler.Register)
 	router.GET("/showtimes/:showtimeId/seats", seatHandler.GetSeats)
-	router.GET("/api/movies", programHandler.ListMovies)
-	router.GET("/api/movies/:id", programHandler.GetMovieByID)
-	router.GET("/api/showtimes", programHandler.ListShowtimes)
-	router.GET("/api/showtimes/:id", programHandler.GetShowtimeByID)
-	router.GET("/api/theaters", programHandler.ListTheaters)
-	router.GET("/api/theaters/:id", programHandler.GetTheaterByID)
-	router.GET("/api/rooms/theater/:theaterId", programHandler.ListRoomsByTheater)
+	router.GET("/api/movies", movieHandler.ListMovies)
+	router.GET("/api/movies/:id", movieHandler.GetMovieByID)
+	router.GET("/api/showtimes", movieHandler.ListShowtimes)
+	router.GET("/api/showtimes/:id", movieHandler.GetShowtimeByID)
+	router.GET("/api/theaters", movieHandler.ListTheaters)
+	router.GET("/api/theaters/:id", movieHandler.GetTheaterByID)
+	router.GET("/api/rooms/theater/:theaterId", movieHandler.ListRoomsByTheater)
 
 	// JWT Auth middleware config
 	protected := router.Group("")
 	protected.Use(auth.JWTAuthMiddleware(jwtSecret))
 	protected.POST("/api/v1/seats/generate-seats", seatHandler.GenerateSeats)
 	protected.POST("/api/v1/bookings", bookingHandler.BookSeats)
+	protected.POST("/api/v1/deposit", balanceHandler.Deposit)
 	protected.GET("/api/v1/users/:userId/bookings", bookingHandler.GetUserBookingHistory)
 
 	port := os.Getenv("PORT")

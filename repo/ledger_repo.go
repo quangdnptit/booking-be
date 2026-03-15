@@ -1,0 +1,33 @@
+package repo
+
+import (
+	"context"
+	"fmt"
+
+	dynamo "github.com/guregu/dynamo/v2"
+
+	"booking-be/repomodel"
+)
+
+// LedgerRepo writes deposit rows into the same table as user profiles (single-table design).
+type LedgerRepo interface {
+	AddDeposit(ctx context.Context, rec repomodel.BalanceRecord) error
+}
+
+type DynamoLedgerRepo struct {
+	table dynamo.Table
+}
+
+func NewDynamoLedgerRepo(db *dynamo.DB) *DynamoLedgerRepo {
+	return &DynamoLedgerRepo{table: db.Table(TableUsers)}
+}
+
+// AddDeposit puts a row with pk=USER#<user_id>, sk=DEPOSIT#<deposit_id>.
+func (r *DynamoLedgerRepo) AddDeposit(ctx context.Context, rec repomodel.BalanceRecord) error {
+	if rec.UserID == "" || rec.DepositID == "" {
+		return fmt.Errorf("user_id and deposit_id required")
+	}
+	rec.Pk = repomodel.PKPrefixUser + rec.UserID
+	rec.Sk = repomodel.SKDepositPrefix + rec.DepositID
+	return r.table.Put(rec).Run(ctx)
+}

@@ -132,16 +132,11 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*Login
 	if bcrypt.CompareHashAndPassword([]byte(rec.PasswordHash), []byte(password)) != nil {
 		return nil, ErrInvalidCredentials
 	}
-	if rec.UserID == "" {
-		return nil, ErrUserMisconfigured
-	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
-	_ = s.users.UpdateAudit(ctx, rec.Email, now)
-
 	access, refresh, expIn, refreshExpIn, err := s.issueTokens(rec.UserID, rec.Email)
 	if err != nil {
-		return nil, fmt.Errorf("sign token: %w", err)
+		return nil, fmt.Errorf("sign token err: %w", err)
 	}
 
 	return &LoginResult{
@@ -190,7 +185,7 @@ func (s *AuthService) Register(ctx context.Context, fullName, email, password st
 		UpdatedAt:    now,
 	}
 	if err := s.users.Create(ctx, rec); err != nil {
-		if strings.Contains(err.Error(), "ConditionalCheckFailed") {
+		if strings.Contains(err.Error(), "ConditionalCheckFailed") || strings.Contains(err.Error(), "email already registered") {
 			return nil, ErrEmailAlreadyRegistered
 		}
 		return nil, fmt.Errorf("create user: %w", err)
