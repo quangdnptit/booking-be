@@ -51,7 +51,7 @@ func scanMovieResponse(row pgx.Row) (models.MovieResponse, error) {
 func (r *PostgresProgramRepo) ListMovies(ctx context.Context) ([]models.MovieResponse, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, title, description, duration_minutes, genre, age_rating, poster_url, created_at, updated_at
-		FROM movies
+		FROM movies WHER is_active = TRUE
 		ORDER BY title ASC
 	`)
 	if err != nil {

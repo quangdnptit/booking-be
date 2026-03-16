@@ -113,7 +113,7 @@ func validateSeatsForBooking(showtimeID string, seatKeys []string, keySeatMap ma
 			return nil, fmt.Errorf("seat %q not found for showtime %q", key, showtimeID)
 		}
 		if seat.BookingID != "" {
-			return nil, fmt.Errorf("seat %q already held or booked", key)
+			return nil, fmt.Errorf("seat %q already booked", key)
 		}
 		status := seat.SeatStatus
 		if status == models.SeatStatusUnknown {

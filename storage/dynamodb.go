@@ -18,9 +18,6 @@ import (
 // AWS: leave DYNAMODB_ENDPOINT empty, use normal credentials.
 func NewDynamoDBStore(ctx context.Context, endpoint string) (*dynamo.DB, error) {
 	region := os.Getenv("AWS_REGION")
-	if region == "" {
-		region = "us-east-1"
-	}
 
 	var cfg aws.Config
 	var err error
@@ -28,12 +25,6 @@ func NewDynamoDBStore(ctx context.Context, endpoint string) (*dynamo.DB, error) 
 	if endpoint != "" {
 		accessKey := os.Getenv("AWS_ACCESS_KEY_ID")
 		secretKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
-		if accessKey == "" {
-			accessKey = "fake"
-		}
-		if secretKey == "" {
-			secretKey = "fake"
-		}
 		cfg, err = config.LoadDefaultConfig(ctx,
 			config.WithRegion(region),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),

@@ -38,6 +38,7 @@ func BookSeatsTransaction(
 
 	bookingTbl := db.Table(TableBookings)
 	seatTbl := db.Table(TableBookedSeats)
+	usersTbl := db.Table(TableUsers)
 
 	bookingRecord := view.BookingDomain2Repo(booking)
 
@@ -56,15 +57,12 @@ func BookSeatsTransaction(
 		tx.Put(seatTbl.Put(rec).If("'updated_at' = ? AND seat_status = ?", oldUpdatedAt, available))
 	}
 
-	if deduct != nil {
-		usersTbl := db.Table(TableUsers)
-		pk := repomodel.PKPrefixUser + deduct.UserID
-		sk := repomodel.SKProfile
-		tx.Update(usersTbl.Update("pk", pk).Range("sk", sk).
-			If("'amount' = ?", deduct.CurrentAmount).
-			Set("amount", deduct.NewAmount).
-			Set("updated_at", deduct.UpdatedAt))
-	}
+	pk := repomodel.PKPrefixUser + deduct.UserID
+	sk := repomodel.SKProfile
+	tx.Update(usersTbl.Update("pk", pk).Range("sk", sk).
+		If("'amount' = ?", deduct.CurrentAmount).
+		Set("amount", deduct.NewAmount).
+		Set("updated_at", deduct.UpdatedAt))
 
 	if err := tx.Run(ctx); err != nil {
 		return fmt.Errorf("book seats transaction: %w", err)
