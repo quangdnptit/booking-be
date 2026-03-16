@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/guregu/dynamo/v2"
 
 	"booking-be/models"
@@ -63,6 +64,22 @@ func BookSeatsTransaction(
 		If("'amount' = ?", deduct.CurrentAmount).
 		Set("amount", deduct.NewAmount).
 		Set("updated_at", deduct.UpdatedAt))
+
+	// Append a ledger row representing this balance deduction (negative amount)
+	delta := deduct.CurrentAmount - deduct.NewAmount
+	if delta != 0 {
+		deductionID := uuid.New().String()
+		ledger := repomodel.BalanceRecord{
+			Pk:           repomodel.PKPrefixBalance + deduct.UserID,
+			Sk:           repomodel.SKDepositPrefix + deductionID,
+			UserID:       deduct.UserID,
+			DepositID:    deductionID,
+			Amount:       -delta,
+			BalanceAfter: deduct.NewAmount,
+			CreatedAt:    deduct.UpdatedAt,
+		}
+		tx.Put(usersTbl.Put(ledger))
+	}
 
 	if err := tx.Run(ctx); err != nil {
 		return fmt.Errorf("book seats transaction: %w", err)
