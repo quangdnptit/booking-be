@@ -1,0 +1,29 @@
+Follow Clean Architecture.
+
+Rules:
+- No business logic in controllers
+- Use service layer for core logic
+- Repository handles DB only
+
+Coding:
+- Use clear naming
+- Small functions (<50 lines)
+- Prefer composition over inheritance
+
+Go:
+- Use goroutines safely
+- Avoid shared state
+- Use context for cancellation
+
+API:
+- RESTful design
+- Proper status codes
+- JSON responses only
+
+Logging:
+- Structured logging
+- Always include traceId
+
+Performance:
+- Avoid unnecessary DB calls
+- Use caching when needed

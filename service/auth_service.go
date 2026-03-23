@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"booking-be/internal/auth"
-	"booking-be/repo"
-	"booking-be/repomodel"
+	"github.com/quangdnptit/booking-be/internal/auth"
+	"github.com/quangdnptit/booking-be/repo"
+	"github.com/quangdnptit/booking-be/repomodel"
 
 	"golang.org/x/crypto/bcrypt"
 )

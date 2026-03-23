@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"booking-be/models"
-	"booking-be/repo"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/repo"
 )
 
 // MovieService exposes movie/showtime reads aligned with cms-booking (list + get by id).

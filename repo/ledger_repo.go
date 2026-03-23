@@ -6,7 +6,7 @@ import (
 
 	dynamo "github.com/guregu/dynamo/v2"
 
-	"booking-be/repomodel"
+	"github.com/quangdnptit/booking-be/repomodel"
 )
 
 // LedgerRepo writes deposit rows into the same table as user profiles (single-table design).

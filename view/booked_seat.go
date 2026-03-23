@@ -1,8 +1,8 @@
 package view
 
 import (
-	"booking-be/models"
-	"booking-be/repomodel"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/repomodel"
 
 	"github.com/google/uuid"
 )

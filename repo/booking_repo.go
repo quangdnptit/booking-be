@@ -6,9 +6,9 @@ import (
 
 	dynamo "github.com/guregu/dynamo/v2"
 
-	"booking-be/models"
-	"booking-be/repomodel"
-	"booking-be/view"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/repomodel"
+	"github.com/quangdnptit/booking-be/view"
 )
 
 const (

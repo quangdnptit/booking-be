@@ -8,7 +8,7 @@ import (
 
 	dynamo "github.com/guregu/dynamo/v2"
 
-	"booking-be/repomodel"
+	"github.com/quangdnptit/booking-be/repomodel"
 )
 
 const (

@@ -3,9 +3,9 @@ package handlers
 import (
 	"net/http"
 
-	"booking-be/internal/observability"
-	"booking-be/models"
-	"booking-be/service"
+	"github.com/quangdnptit/booking-be/internal/observability"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"

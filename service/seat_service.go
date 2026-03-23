@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"booking-be/models"
-	"booking-be/repo"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/repo"
 )
 
 type SeatService struct {

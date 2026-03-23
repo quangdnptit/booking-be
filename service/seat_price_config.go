@@ -4,7 +4,7 @@ import (
 	"os"
 	"strconv"
 
-	"booking-be/models"
+	"github.com/quangdnptit/booking-be/models"
 )
 
 // SeatPriceConfig holds per-seat-type price modifiers (added to base price). Load from env.

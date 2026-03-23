@@ -7,13 +7,15 @@ import (
 
 	"github.com/guregu/dynamo/v2"
 
-	"booking-be/models"
-	"booking-be/repomodel"
-	"booking-be/view"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/repomodel"
+	"github.com/quangdnptit/booking-be/view"
 )
 
 // SeatRepo defines operations for booked seats in DynamoDB.
 // Table key: pk=showtime_id, sk=seat_key. GSI: booking-seats-index.
+//
+//go:generate mockgen -source=../repo/seat_repo.go -destination=../mock/seat_repo_mock.go -package=mock
 type SeatRepo interface {
 	GetByShowtimeIDAndSeatKeys(ctx context.Context, showtimeID string, seatKeys []string) ([]models.Seat, error)
 	GetByShowtimeID(ctx context.Context, showtimeID string) ([]models.Seat, error)

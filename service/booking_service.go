@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	dynamo "github.com/guregu/dynamo/v2"
 
-	"booking-be/models"
-	"booking-be/repo"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/repo"
 )
 
 var ErrInsufficientBalance = errors.New("insufficient balance")

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"booking-be/models"
-	"booking-be/storage"
+	"github.com/quangdnptit/booking-be/models"
+	"github.com/quangdnptit/booking-be/storage"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

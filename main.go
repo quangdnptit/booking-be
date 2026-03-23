@@ -1,8 +1,8 @@
 package main
 
 import (
-	"booking-be/internal/observability"
 	"context"
+	"github.com/quangdnptit/booking-be/internal/observability"
 	"os"
 	"strings"
 	"time"
@@ -13,11 +13,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"booking-be/handlers"
-	"booking-be/internal/auth"
-	"booking-be/repo"
-	"booking-be/service"
-	"booking-be/storage"
+	"github.com/quangdnptit/booking-be/handlers"
+	"github.com/quangdnptit/booking-be/internal/auth"
+	"github.com/quangdnptit/booking-be/repo"
+	"github.com/quangdnptit/booking-be/service"
+	"github.com/quangdnptit/booking-be/storage"
 )
 
 func main() {
